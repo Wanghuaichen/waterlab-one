@@ -1,0 +1,19 @@
+# Carl Lindquist
+# .gitignore for waterlab one
+
+
+
+# smaller generated files
+*.html
+*.cycdx
+*.cyfit
+*.rpt
+*.svd
+
+
+# Big generated source file folders
+
+Generated_Source
+Export
+codegentemp
+CortexM3
