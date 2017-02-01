@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "shell.h"
 #include "machine.h"
 
 
@@ -45,6 +46,7 @@ int shell(char c) {
 		if(sscanf(shellBuffer, "%s", command)) { //If a string was found in the buffer
 			runCommand(command);
 		}
+		printf("\n\r%s", SHELL_PROMPT);
 		clearBuffer();
 	}
 	return exitFlag? 0 : 1;
@@ -72,7 +74,6 @@ void runCommand(char command[]) {
 	float secondsPerCycle;
 	int scans;
 	switch (determineCommand(command)) {
-		
 		case PRINT:
 			sscanf(shellBuffer, "%*s %[^\n]", argument);
 			printf("%s\n\r", argument);
