@@ -4,6 +4,7 @@
 
 
 # smaller generated files
+*.o
 *.html
 *.cycdx
 *.cyfit
