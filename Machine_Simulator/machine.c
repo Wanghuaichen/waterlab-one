@@ -346,16 +346,18 @@ void stageTank(char tankStage[][TANK_PRINT_WIDTH], Tank* tank) {
 	}
 }
 
+/*
+[desc]	Prints the turbidities of all tanks in tankArr on one line.
+
+[tanks] An array of tanks to print. Must be MAX_TANK_COUNT in length.
+*/
 void printTurbidities(Tank* tankArr[MAX_TANK_COUNT]) {
-	// int numTanks;
 	int i;
 	for (i=0; tankArr[i] != NULL && i < MAX_TANK_COUNT; i++) {
 		printf("%04.2f   ", tankArr[i]->turbidity);
 	}
-	// numTanks = i;
 	printf("\n\r");
 }
-
 
 
 
