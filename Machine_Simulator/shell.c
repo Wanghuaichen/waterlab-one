@@ -58,6 +58,7 @@ int shell(char c) {
 enum commands {
 	PRINT = 1,
 	RUN,
+	RESET,
 	HELLO,
 	EXIT,
 };
@@ -89,6 +90,11 @@ void runCommand(char command[]) {
 				runMachine(100, 0.01, 1); //default run
 			break;
 
+		case RESET:
+			defaultMachineInit();
+			printf("\tMachine Reset\n\r");
+			break;
+
 		case HELLO:
 			printf("\tHey there :)\n\r");
 			break;
@@ -115,6 +121,8 @@ int determineCommand(char command[]) {
 		return PRINT;
 	} else if(!strcmp(command, "run")) {
 		return RUN;
+	} else if(!strcmp(command, "reset")) {
+		return RESET;
 	} else if(!strcmp(command, "hello")) {
 		return HELLO;
 	} else if(!strcmp(command, "exit")) {
