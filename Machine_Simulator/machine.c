@@ -18,7 +18,13 @@
 #define FALSE 0
 #define INFINITY 999999
 
-#define TANK_FULL_THRESHOLD 99.5
+#define TANK_FULL_THRESHOLD 90
+#define BATTERY_FULL_THRESHOLD 90
+#define BATTERY_LOW_THRESHOLD 20 //Percentage of energy at which the machine waits to recharge
+#define DEFAULT_BATTERY_SIZE 1000
+#define RECHARGE_PER_CYCLE 10
+#define CYCLES_PER_DAY 24 // hours/day
+#define HALF_DAY (CYCLES_PER_DAY / 2)
 
 #define TANK_PRINT_WIDTH 4
 #define TANK_PRINT_HEIGHT 11
@@ -27,13 +33,13 @@
 
 
 //––––––  Private Types  ––––––//
-typedef struct Tank{
+typedef struct Tank {
 	int volume;
 	int quantity;
 	float turbidity;
 } Tank;
 
-typedef struct Device{
+typedef struct Device {
 	int enable;
 	int flowRate;
 	int consumption;
@@ -42,23 +48,43 @@ typedef struct Device{
 	Tank* sink;
 } Device;
 
+typedef struct Battery {
+	int remaining;
+	int max;
+} Battery;
+
+enum STATES {
+	STATE_IDLE,
+	STATE_RUN_FILTER_PUMP,
+	STATE_RUN_RO_PUMP,
+	STATE_RUN_UV,
+	STATE_RECHARGE,
+} machineState;
+
 
 //––––––  Private Variables  ––––––//
 Device* devices[MAX_TANK_COUNT] = {};
 int numDevices;
 Tank* tanks[MAX_TANK_COUNT] = {};
 int numTanks;
+Battery* mainBattery;
+int totalCycles;
+int daytime;
+int waterPurified;
 
 
 //––––––  Private Declarations  ––––––//
 Tank* tank(int volume, int quantity, float turbidity);
 Device* device(int enable, int flowRate, int consumption, float newTurbidity, Tank* source, Tank* sink);
+Battery* battery(int remaining, int max);
 void updateMachine(void);
 int moveWater(Tank* source, Tank* sink, int amount, float sourceTurbidity);
-void updateDevice(Device* device);
+void runDevice(Device* device);
 void printTanks(Tank* tankArr[MAX_TANK_COUNT]);
 void stageTank(char tankStage[][TANK_PRINT_WIDTH], Tank* tank);
 void printTurbidities(Tank* tank[MAX_TANK_COUNT]);
+void printBattery(Battery* battery);
+int deviceAvailable(Device* device);
 int isFull(Tank* tank);
 void delay(double dly);
 
@@ -68,14 +94,27 @@ void delay(double dly);
 void runMachine(int cycles, float timePerCycle, int graphicsEnable) {
 	int i;
 	while(i++ < cycles) { //Run the machine for cycles 
-		updateMachine(); //Move water around and update device statuses
+		mainBattery->remaining += daytime ? RECHARGE_PER_CYCLE : 0; //recharge if its daytime
+		
+		updateMachine(); // run the state machine
 		if(graphicsEnable) {
 			system("clear");
 			printTanks(tanks);
 			printTurbidities(tanks);
+			printBattery(mainBattery);
 		}
-		delay(timePerCycle); //Waste time so the user can watch the tanks change
+		delay(timePerCycle); //Waste time so the user can watch the tanks change graphically
+
+		totalCycles++;
+		if (totalCycles % HALF_DAY == 0) { // invert daytime every half day
+			daytime = daytime ? FALSE : TRUE;  
+		}
 	}
+	/* Print the final state even with graphics disabled */
+	system("clear");
+	printTanks(tanks);
+	printTurbidities(tanks);
+	printBattery(mainBattery);
 	printf("\n----- Done -----\n\r");
 	printf("[cycles run] %d\n\r\tSome more stats\n\r" , cycles);
 }
@@ -85,9 +124,10 @@ void runMachine(int cycles, float timePerCycle, int graphicsEnable) {
 		due to the low-modularity of machine implementation.
 
 [tankArr] Array containing Tank objects, size must be MAX_TANK_COUNT
-[deviceArr]	Array containing Device objects, size must be MAX_TANK_COUNT			   
+[deviceArr]	Array containing Device objects, size must be MAX_TANK_COUNT	
+[batterySize] Size of the battery for the machine		   
 */
-void machineInit(Tank* tankArr[MAX_TANK_COUNT], Device* deviceArr[MAX_TANK_COUNT]) {
+void machineInit(Tank* tankArr[MAX_TANK_COUNT], Device* deviceArr[MAX_TANK_COUNT], int batterySize) {
 	int i;
 	for (i=0; i < MAX_TANK_COUNT; i++) //Copy to global
 		tanks[i] = tankArr[i];
@@ -98,6 +138,12 @@ void machineInit(Tank* tankArr[MAX_TANK_COUNT], Device* deviceArr[MAX_TANK_COUNT
 	numTanks = i;
 	for (i=0; devices[i] != NULL; i++);
 	numDevices = i;
+	machineState = STATE_IDLE;
+
+	mainBattery = battery(batterySize, batterySize);
+	totalCycles = 0;
+	daytime = FALSE;
+	waterPurified = 0;
 }
 
 
@@ -105,9 +151,9 @@ void defaultMachineInit(void) {
 	//Initialized outside of array for readable device initialization
 	/* tank(volume, quantity, turbidity) */
 	Tank* source = tank(INFINITY, INFINITY, 5.0);
-	Tank* tank2 = tank(100, 0, 0.0);
-	Tank* tank3 = tank(100, 0, 0.0);
-	Tank* tank4 = tank(100, 0, 0.0);
+	Tank* tank2 = tank(25, 0, 0.0);
+	Tank* tank3 = tank(25, 0, 0.0);
+	Tank* tank4 = tank(25, 0, 0.0);
 	Tank* sink = tank(INFINITY, 0, 0.0);
 
 	Tank* tankArr[MAX_TANK_COUNT] = {};
@@ -120,16 +166,16 @@ void defaultMachineInit(void) {
 	Device* deviceArr[MAX_TANK_COUNT] = {};
 	/* device(enable, flowRate, powerconsumption, newTurbidity, source, sink) */
 	//Filter pump
-	deviceArr[0] = device(FALSE, 14, 10, 3.0, source, tank2);
+	deviceArr[0] = device(FALSE, 15, 10, 3.0, source, tank2);
 	//RO pump
-	deviceArr[1] = device(FALSE, 5, 9, 0.5, tank2, tank3);
+	deviceArr[1] = device(FALSE, 2, 10, 0.3, tank2, tank3);
+	deviceArr[4] = device(FALSE, 8, 0, -1, tank2, sink); //RO reject water
 	//UV disinfect
-	deviceArr[2] = device(FALSE, 20, 10, -1, tank3, tank4);
+	deviceArr[2] = device(FALSE, 100, 50, -1, tank3, tank4);
 	//Slow drain
-	deviceArr[3] = device(FALSE, 3, 15, -1, tank4, sink);
-
+	deviceArr[3] = device(FALSE, 50, 0, -1, tank4, sink);
 	
-	machineInit(tankArr, deviceArr); //Load tanks and devices into global arrays
+	machineInit(tankArr, deviceArr, DEFAULT_BATTERY_SIZE); //Load tanks and devices into global arrays
 	printf(""); //Very nasty fix to make the terminal keep up
 }
 
@@ -180,25 +226,108 @@ Device* device(int enable, int flowRate, int consumption, float newTurbidity, Ta
 }
 
 /*
-[desc]	For all initialized devices, calls moveWater() and updateDevice(), see
-		below for details. Has the effect of 'running the machine' by moving water 
-		from tank to tank depending on wheter devices are on or off. Also
-		enables/disables machines based on the functionality of updateDevice().
+[desc]	Constructor for a Battery object. Batteries power devices.
+
+[remaining] Int representing the remaining energy in the battery.
+[max] Int representing the maximum energy the battery can store.
+
+[ret]	A pointer to the newly created battery object.	   
+*/
+Battery* battery(int remaining, int max) {
+    Battery* b = (Battery*) malloc(sizeof(Battery));
+    b->remaining = remaining;
+    b->max = max;
+	return b;
+}
+
+
+/*
+[desc]	This is the system state-machine. Runs in the following way:
+			If the battery power is low, recharge until BATTERY_FULL_THRESHOLD
+			If a device can run run it, if not try the next one
+				Once a device is running, continue until the 'sink tank' is full or out of power
+					Return to the idle state once a device can no longer run
 */
 void updateMachine(void) {
 	int i;
-	float sourceTurbidity;
-	for (i=0; i < numDevices; i++) {
-		if (devices[i]->enable) {
-			if (devices[i]->newTurbidity < devices[i]->source->turbidity && devices[i]->newTurbidity >= 0.0)
-				sourceTurbidity = devices[i]->newTurbidity;
-			else
-				sourceTurbidity = devices[i]->source->turbidity;
-			// sourceTurbidity =  ? devices[i]->newTurbidity : devices[i]->source->turbidity;
-			moveWater(devices[i]->source, devices[i]->sink, devices[i]->flowRate, sourceTurbidity);
-		}
-		updateDevice(devices[i]);
+	Device* filterPump = devices[0];
+	Device* roPump = devices[1];
+	Device* roReject = devices[4];
+	Device* uv = devices[2];
+	Device* drain = devices[3];
+
+	switch (machineState) {
+		case STATE_IDLE:
+			if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
+				machineState = STATE_RECHARGE;
+			} else if (deviceAvailable(filterPump)) { // Filter pump
+				filterPump->enable = TRUE;
+				machineState = STATE_RUN_FILTER_PUMP;
+			} else if (deviceAvailable(roPump)) { // RO pump
+				roPump->enable = TRUE;
+				roReject->enable = TRUE;
+				machineState = STATE_RUN_RO_PUMP;
+			} else if (deviceAvailable(uv)) { // UV 
+				uv->enable = TRUE;
+				machineState = STATE_RUN_UV;
+			} else {
+				//Drain the final tank
+				drain->enable = TRUE;
+				runDevice(drain);
+			}
+			break;
+
+		case STATE_RUN_FILTER_PUMP:
+			if (deviceAvailable(filterPump)) {
+				runDevice(filterPump);
+			} else {
+				filterPump->enable = FALSE;
+				machineState = STATE_IDLE;
+			}
+			break;
+
+		case STATE_RUN_RO_PUMP:
+			if (deviceAvailable(roPump)) {
+				runDevice(roPump);
+				runDevice(roReject);
+			} else {
+				roPump->enable = FALSE;
+				roReject->enable = FALSE;
+				machineState = STATE_IDLE;
+			}
+			break;
+
+		case STATE_RUN_UV:
+			if (deviceAvailable(uv)) {
+				waterPurified += runDevice(uv);
+			} else {
+				uv->enable = FALSE;
+				machineState = STATE_IDLE;
+			}
+			break;
+
+		case STATE_RECHARGE:
+			if (mainBattery->remaining*100 / mainBattery->max >= BATTERY_FULL_THRESHOLD) {
+				machineState = STATE_IDLE;
+			}
+			break;
+	};
+}
+
+/*
+[desc]	Removes energy from the global battery if consumption is less than the energy
+		remining in the battery.
+
+[consumption] Amount of energy to remove from the battery.
+
+[ret]	Returns 1 if the battery has enough energy remaining, 0 otherwise.
+*/
+int drainBattery(int consumption) {
+	if (mainBattery->remaining < consumption) {
+		return 0;
 	}
+	mainBattery->remaining = mainBattery->remaining - consumption;
+	return 1;
 }
 
 /*
@@ -211,47 +340,69 @@ void updateMachine(void) {
 [amount] Amount of water to move.
 [sourceTurbidity] Turbidity of the incoming water.
 
-[ret]	0 if 'sink tank' was filled, 1 otherwise.
+[ret]	Water moved between tanks.
 */
 int moveWater(Tank* source, Tank* sink, int amount, float sourceTurbidity) {
-	/* increase sink quantity */
-	if (sink->volume != INFINITY) { 
-		if (source->quantity < amount)
-			sink->quantity += source->quantity; //source doesn't have enough
-		else 
-			sink->quantity += amount; //source has enough
-		if (sink->quantity > sink->volume)
-			sink->quantity = sink->volume; //Cap volume at full tank
-	}
-
-	/* decrease source tank */
-	if (source->quantity != INFINITY && source->quantity > 0) {
-		source->quantity -= amount;
-		if (source->quantity < 0)
-			source->quantity = 0; //Cap volume at empty tank
-	}
-
 	/* set new turbidity for sink using weighted average */
-	sink->turbidity = ( (sourceTurbidity*(float)amount) + (sink->turbidity*sink->quantity) ) /
-		(sink->quantity + (float)amount);
+	sink->turbidity = ( (sourceTurbidity*(float)amount) + (float)(sink->turbidity*sink->quantity) ) /
+		(float)(sink->quantity + amount);
 
-	return isFull(sink)? FALSE: TRUE;
+	if (amount > source->quantity) { //Source doesnt have enough
+		amount = source->quantity;
+	}
+	if (amount + sink->quantity > sink->volume) { //Sink is too full
+		amount = sink->volume - sink->quantity; 
+	}
+
+	source->quantity -= amount;
+	sink->quantity += amount;
+	return amount;
+
+	// /* increase sink quantity */
+	// if (sink->volume != INFINITY) { 
+	// 	if (source->quantity < amount) {
+	// 		sink->quantity += source->quantity; //source doesn't have enough
+	// 	} else {
+	// 		sink->quantity += amount; //source has enough
+	// 	}
+
+	// 	if (sink->quantity > sink->volume) {
+	// 		sink->quantity = sink->volume; //Cap volume at full tank
+	// 	}
+	// }
+
+	// /* decrease source tank */
+	// if (source->quantity != INFINITY && source->quantity > 0) {
+	// 	source->quantity -= amount;
+	// 	if (source->quantity < 0) {
+	// 		source->quantity = 0; //Cap volume at empty tank
+	// 	}
+	// }
+	// return isFull(sink)? FALSE: TRUE;
 }
 
 /*
-[desc]	Enables/disables a device based on the fullness of the sink tank.
+[desc]	Calls drainBattery() and moveWater() on the device specified. Calculates the incoming
+		water turbidity from the device specified. Does no checking on whether water should 
+		actually be moved.
 
-[device] Device to update.
+[device] A device to run.
+
+[ret]	Returns the amount of water moved.
 */
-void updateDevice(Device* device) {
-	if (device->sink->quantity == device->sink->volume)
-		device->enable = FALSE;
-	else if (device->sink->quantity <= device->sink->volume/2)
-		device->enable = TRUE;
+int runDevice(Device* device) {
+	float sourceTurbidity;
+	if (device->newTurbidity < device->source->turbidity && device->newTurbidity >= 0.0) {
+		sourceTurbidity = device->newTurbidity;
+	} else {
+		sourceTurbidity = device->source->turbidity;
+	}
+	drainBattery(device->consumption);
+	return moveWater(device->source, device->sink, device->flowRate, sourceTurbidity);
 }
 
 /*
-[desc]	Determines whether or not a tank's quantity is above TANK_FULL_TRESHOLD % full.
+[desc]	Determines whether or not a tank's quantity is above TANK_FULL_TRESHOLD% full.
 
 [tank] A tank to examine.
 
@@ -260,7 +411,23 @@ void updateDevice(Device* device) {
 int isFull(Tank* tank) {
 	int vol = tank->volume;
 	int qty = tank->quantity;
-	return (TANK_FULL_THRESHOLD >= (float)qty / (float)vol * 100)? TRUE: FALSE;
+	return (TANK_FULL_THRESHOLD <= (float)qty / (float)vol * 100)? TRUE: FALSE;
+}
+
+/*
+[desc]	Determines whether or not a device can be run for the next cycle based
+		on power to be consumed, and the fullness of the source tank.
+
+[tank] A device to examine.
+
+[ret]	1 if the device can run, 0 otherwise.
+*/
+int deviceAvailable(Device* device) {
+	if (!isFull(device->sink) && device->consumption <= mainBattery->remaining) {
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 /*
@@ -312,7 +479,7 @@ void printTanks(Tank* tanks[MAX_TANK_COUNT]) {
 		l += TANK_PRINT_WIDTH + SPACING; //Start index of new tank	
 	}
 
-	//print stage
+	//print entire stage
 	printf("\n\r");
 	for(i = TANK_PRINT_HEIGHT - 1; i >= 0; i--) {
 		for(j = 0; j < numTanks*(TANK_PRINT_WIDTH + SPACING); j++) {
@@ -358,6 +525,25 @@ void printTurbidities(Tank* tankArr[MAX_TANK_COUNT]) {
 	}
 	printf("\n\r");
 }
+
+/*
+[desc]	Prints the battery statistics.
+
+[battery] A battery to print stats for.
+*/
+void printBattery(Battery* battery) {
+	printf("\n\rBattery %%: %d\n\r", battery->remaining*100/battery->max);
+	printf("Daytime: %s\n\n\r", daytime ? "Yes" : "No");
+}
+
+void printStats(void) {
+	printf()
+}
+
+
+
+
+
 
 
 

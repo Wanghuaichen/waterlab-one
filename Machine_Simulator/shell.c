@@ -82,12 +82,15 @@ void runCommand(char command[]) {
 
 		case RUN:
 			scans = sscanf(shellBuffer, "%*s %d %f %s", &cycles, &secondsPerCycle, argument);
-			if (scans == 3)
+			if (scans == 3) {
 				runMachine(cycles, secondsPerCycle, 0); //Third arg disables graphics
-			else if (scans == 2)
+			} else if (scans == 2) {
 				runMachine(cycles, secondsPerCycle, 1);
-			else
-				runMachine(100, 0.01, 1); //default run
+			} else if (scans == 1) {
+				runMachine(cycles, 0.001, 1);
+			} else {
+				runMachine(200, 0.01, 1); //default run
+			}
 			break;
 
 		case RESET:
