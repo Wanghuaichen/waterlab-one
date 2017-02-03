@@ -71,6 +71,7 @@ Battery* mainBattery;
 int totalCycles;
 int daytime;
 int waterPurified;
+int waterRejected;
 
 
 //––––––  Private Declarations  ––––––//
@@ -79,11 +80,13 @@ Device* device(int enable, int flowRate, int consumption, float newTurbidity, Ta
 Battery* battery(int remaining, int max);
 void updateMachine(void);
 int moveWater(Tank* source, Tank* sink, int amount, float sourceTurbidity);
-void runDevice(Device* device);
+int runDevice(Device* device);
 void printTanks(Tank* tankArr[MAX_TANK_COUNT]);
 void stageTank(char tankStage[][TANK_PRINT_WIDTH], Tank* tank);
 void printTurbidities(Tank* tank[MAX_TANK_COUNT]);
 void printBattery(Battery* battery);
+void printGraphics(void);
+void printStats(void);
 int deviceAvailable(Device* device);
 int isFull(Tank* tank);
 void delay(double dly);
@@ -98,25 +101,20 @@ void runMachine(int cycles, float timePerCycle, int graphicsEnable) {
 		
 		updateMachine(); // run the state machine
 		if(graphicsEnable) {
-			system("clear");
-			printTanks(tanks);
-			printTurbidities(tanks);
-			printBattery(mainBattery);
+			printGraphics();
+			delay(timePerCycle); //Waste time so the user can watch the tanks change graphically
 		}
-		delay(timePerCycle); //Waste time so the user can watch the tanks change graphically
-
+		
 		totalCycles++;
 		if (totalCycles % HALF_DAY == 0) { // invert daytime every half day
 			daytime = daytime ? FALSE : TRUE;  
 		}
 	}
 	/* Print the final state even with graphics disabled */
-	system("clear");
-	printTanks(tanks);
-	printTurbidities(tanks);
-	printBattery(mainBattery);
+	printGraphics();
 	printf("\n----- Done -----\n\r");
-	printf("[cycles run] %d\n\r\tSome more stats\n\r" , cycles);
+	printf("[cycles run] %d\n\r" , cycles);
+	printStats();
 }
 
 /*
@@ -144,6 +142,7 @@ void machineInit(Tank* tankArr[MAX_TANK_COUNT], Device* deviceArr[MAX_TANK_COUNT
 	totalCycles = 0;
 	daytime = FALSE;
 	waterPurified = 0;
+	waterRejected = 0;
 }
 
 
@@ -168,7 +167,7 @@ void defaultMachineInit(void) {
 	//Filter pump
 	deviceArr[0] = device(FALSE, 15, 10, 3.0, source, tank2);
 	//RO pump
-	deviceArr[1] = device(FALSE, 2, 10, 0.3, tank2, tank3);
+	deviceArr[1] = device(FALSE, 8, 10, 0.3, tank2, tank3);
 	deviceArr[4] = device(FALSE, 8, 0, -1, tank2, sink); //RO reject water
 	//UV disinfect
 	deviceArr[2] = device(FALSE, 100, 50, -1, tank3, tank4);
@@ -289,7 +288,7 @@ void updateMachine(void) {
 		case STATE_RUN_RO_PUMP:
 			if (deviceAvailable(roPump)) {
 				runDevice(roPump);
-				runDevice(roReject);
+				waterRejected += runDevice(roReject);
 			} else {
 				roPump->enable = FALSE;
 				roReject->enable = FALSE;
@@ -354,31 +353,12 @@ int moveWater(Tank* source, Tank* sink, int amount, float sourceTurbidity) {
 		amount = sink->volume - sink->quantity; 
 	}
 
-	source->quantity -= amount;
-	sink->quantity += amount;
+	if (source->quantity != INFINITY) {
+		source->quantity -= amount;
+	}
+	if (sink->volume != INFINITY)
+		sink->quantity += amount;
 	return amount;
-
-	// /* increase sink quantity */
-	// if (sink->volume != INFINITY) { 
-	// 	if (source->quantity < amount) {
-	// 		sink->quantity += source->quantity; //source doesn't have enough
-	// 	} else {
-	// 		sink->quantity += amount; //source has enough
-	// 	}
-
-	// 	if (sink->quantity > sink->volume) {
-	// 		sink->quantity = sink->volume; //Cap volume at full tank
-	// 	}
-	// }
-
-	// /* decrease source tank */
-	// if (source->quantity != INFINITY && source->quantity > 0) {
-	// 	source->quantity -= amount;
-	// 	if (source->quantity < 0) {
-	// 		source->quantity = 0; //Cap volume at empty tank
-	// 	}
-	// }
-	// return isFull(sink)? FALSE: TRUE;
 }
 
 /*
@@ -536,8 +516,24 @@ void printBattery(Battery* battery) {
 	printf("Daytime: %s\n\n\r", daytime ? "Yes" : "No");
 }
 
+/*
+[desc]	Prints all of the optional graphics for the simulator.
+*/
+void printGraphics(void) {
+	system("clear");
+	printTanks(tanks);
+	printTurbidities(tanks);
+	printBattery(mainBattery);
+}
+
+/*
+[desc]	Prints all of the global statistics for the simulator.
+*/
 void printStats(void) {
-	printf()
+	printf("[total cycles] %d\n\r" , totalCycles);
+	printf("[water purified] %d\n\r" , waterPurified);
+	printf("[water rejected] %d\n\r" , waterRejected);
+
 }
 
 
