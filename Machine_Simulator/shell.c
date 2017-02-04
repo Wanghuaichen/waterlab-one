@@ -58,6 +58,7 @@ int shell(char c) {
 enum commands {
 	PRINT = 1,
 	RUN,
+	TOGGLE_POWER,
 	RESET,
 	HELLO,
 	EXIT,
@@ -93,6 +94,10 @@ void runCommand(char command[]) {
 			}
 			break;
 
+		case TOGGLE_POWER:
+			printf("\tInfinite power toggled: %s\n\r", togglePower()? "On" : "Off");
+			break;
+
 		case RESET:
 			defaultMachineInit();
 			printf("\tMachine Reset\n\r");
@@ -124,6 +129,8 @@ int determineCommand(char command[]) {
 		return PRINT;
 	} else if(!strcmp(command, "run")) {
 		return RUN;
+	} else if(!strcmp(command, "togglePower")) {
+		return TOGGLE_POWER;
 	} else if(!strcmp(command, "reset")) {
 		return RESET;
 	} else if(!strcmp(command, "hello")) {

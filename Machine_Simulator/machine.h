@@ -33,5 +33,12 @@ void defaultMachineInit(void);
 */
 void runMachine(int cycles, float timePerCycle, int graphicsEnable);
 
+/*
+[desc]	Toggles infiniteEnergy. Used to decide whether or not the mainBattery is drained.
+
+[ret]	The new value of infiniteEnergy, either 1 or 0.
+*/
+int togglePower(void);
+
 
 #endif //SHELL_H
