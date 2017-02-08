@@ -596,8 +596,6 @@ void printDebug(void) {
 		sprintf(state, "STATE_RUN_RO_PUMP");
 	} else if (machineState == 3) {
 		sprintf(state, "STATE_RUN_UV");
-	} else if (machineState == 4) {
-		sprintf(state, "STATE_RECHARGE");
 	}
 	printf("\n\r[DEBUG STATS]");
 	printf("\n\r\tState: %s -- %d", state, machineState);
