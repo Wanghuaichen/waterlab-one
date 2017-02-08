@@ -182,7 +182,7 @@ void defaultMachineInit(void) {
 	deviceArr[1] = device(FALSE, 8, 10, 0.3, tank2, tank3);
 	deviceArr[4] = device(FALSE, 16, 0, -1, tank2, sink); //RO reject water
 	//UV disinfect
-	deviceArr[2] = device(FALSE, 480, 30, -1, tank3, tank4);
+	deviceArr[2] = device(FALSE, 60, 30, -1, tank3, tank4);
 	//Slow drain
 	deviceArr[3] = device(FALSE, 10, 0, -1, tank4, sink);
 	
