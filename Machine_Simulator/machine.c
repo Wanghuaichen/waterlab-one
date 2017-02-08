@@ -172,7 +172,7 @@ void defaultMachineInit(void) {
 	Device* deviceArr[MAX_TANK_COUNT] = {};
 	/* device(enable, flowRate, powerconsumption, newTurbidity, source, sink) */
 	//Filter pump
-	deviceArr[0] = device(FALSE, 60, 10, 3.0, source, tank2);
+	deviceArr[0] = device(FALSE, 30, 10, 3.0, source, tank2);
 	//RO pump
 	deviceArr[1] = device(FALSE, 8, 10, 0.3, tank2, tank3);
 	deviceArr[4] = device(FALSE, 16, 0, -1, tank2, sink); //RO reject water
@@ -182,7 +182,7 @@ void defaultMachineInit(void) {
 	deviceArr[3] = device(FALSE, 10, 0, -1, tank4, sink);
 	
 	machineInit(tankArr, deviceArr, DEFAULT_BATTERY_SIZE); //Load tanks and devices into global arrays
-	printf(""); //Very nasty fix to make the terminal keep up
+	printf(""); //Very nasty fix to make the terminal keep up with constant printing.rer
 }
 
 
@@ -591,7 +591,22 @@ void printTurbidities(Tank* tankArr[MAX_TANK_COUNT]) {
 */
 void printBattery(Battery* battery) {
 	printf("\n\rBattery %%: %d\n\r", battery->remaining*100/battery->max);
-	printf("Daytime: %s\n\n\r", daytime ? "Yes" : "No");
+	printf("\n\rDaytime: %s", daytime ? "Yes" : "No");
+	char state[30] = {};
+	if (machineState == 0) {
+		sprintf(state, "STATE_IDLE");
+	} else if (machineState == 1) {
+		sprintf(state, "STATE_RUN_FILTER_PUMP");
+	} else if (machineState == 2) {
+		sprintf(state, "STATE_RUN_RO_PUMP");
+	} else if (machineState == 3) {
+		sprintf(state, "STATE_RUN_UV");
+	} else if (machineState == 4) {
+		sprintf(state, "STATE_RECHARGE");
+	}
+	printf("\n\rState: %s -- %d", state, STATE_IDLE);
+	printf("\n\rCycles: %d", totalCycles);
+	printf("\n\n\r");
 }
 
 /*
