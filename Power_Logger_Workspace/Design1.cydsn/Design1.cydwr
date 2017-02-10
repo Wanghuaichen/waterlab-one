@@ -251,6 +251,8 @@
   <Group key="DWRInstGuidMapping">
     <Group key="Pin">
       <Data key="239b2542-ef6a-4655-bd83-f5d25eac73df/ed092b9b-d398-4703-be89-cebf998501f6" value="LCD_LCDPort" />
+      <Data key="77715107-f8d5-47e5-a629-0fb83101ac6b" value="ADC_Input1" />
+      <Data key="d205c6a6-cc68-4ea0-8ff8-5d8f995fee82" value="ADC_Input2" />
     </Group>
   </Group>
   <Group key="EEPROM">
@@ -3360,6 +3362,16 @@
         <Data key="Port Format" value="2,6" />
       </Group>
     </Group>
+    <Group key="77715107-f8d5-47e5-a629-0fb83101ac6b">
+      <Group key="0">
+        <Data key="Port Format" value="3,7" />
+      </Group>
+    </Group>
+    <Group key="d205c6a6-cc68-4ea0-8ff8-5d8f995fee82">
+      <Group key="0">
+        <Data key="Port Format" value="3,0" />
+      </Group>
+    </Group>
   </Group>
   <Group key="PlaceDir">
     <Data key="count" value="0" />
@@ -3372,7 +3384,7 @@
     <Data key="CYDEV_DEBUGGING_DPS" value="SWD_SWV" />
     <Data key="CYDEV_DEBUGGING_XRES" value="False" />
     <Data key="CYDEV_ECC_ENABLE" value="False" />
-    <Data key="CYDEV_HEAP_SIZE" value="0x80" />
+    <Data key="CYDEV_HEAP_SIZE" value="0x1000" />
     <Data key="CYDEV_INSTRUCT_CACHE_ENABLED" value="True" />
     <Data key="CYDEV_PROTECTION_ENABLE" value="False" />
     <Data key="CYDEV_STACK_SIZE" value="0x0800" />
