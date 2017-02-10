@@ -8,6 +8,8 @@
 *.html
 *.cycdx
 *.cyfit
+*.cywrk.*
+*.cyprj.*
 *.rpt
 *.svd
 
