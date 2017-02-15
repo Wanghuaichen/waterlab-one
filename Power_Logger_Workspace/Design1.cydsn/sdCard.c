@@ -28,9 +28,10 @@ uint8 sdClose(FS_FILE* file);
 
 uint8 sdStart(char filePrefix[], char startString[]) {
     FS_Init();
+    FS_FAT_SupportLFN(); /* Support long file names */
     initSuccessful = 1;
     
-    /* Figure out new file name */
+    /* Figure out new file number, and record filename */
     uint16 fileNum = 0;
     do {
         sprintf(dataFileName, "%s-%d.txt", filePrefix, fileNum);

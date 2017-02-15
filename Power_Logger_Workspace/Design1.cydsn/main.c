@@ -33,7 +33,7 @@ int main(void)
 
     LCD_Start();
     
-    while (!sdStart("data", "\0")) {
+    while (!sdStart("data", "")) {
         LCD_ClearDisplay();
         LCD_PrintString("SD ERROR:");
         LCD_Position(1, 0);
