@@ -10,19 +10,17 @@
 
 #include <project.h>
     
-    
-    
+ 
 /*
 [desc]	Creates a new .txt file and initializes it with startString.
         Automatically appends a newline if startString has length > 0.
     
-[filePrefix] Filename; will be appended with -iteration. Ex: filename-22.txt
-[startString] A string which will be the first line of the file. 
+[fileName] The name of your file. Will be appended with -iteration. Ex: filename-22.txt
+[header] A string which will be the first line of the file. 
 	
 [ret]	Returns 1 for success, 0 otherwise
 */
-uint8 sdStart(char filePrefix[], char startString[]);
-
+uint8 sdStart(char fileName[], char header[]);
 
 /*
 [desc]	Appends a formatted data string to the data file.

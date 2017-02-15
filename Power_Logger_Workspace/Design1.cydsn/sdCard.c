@@ -26,7 +26,7 @@ uint8 sdClose(FS_FILE* file);
 
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
 
-uint8 sdStart(char filePrefix[], char startString[]) {
+uint8 sdStart(char fileName[], char header[]) {
     FS_Init();
     FS_FAT_SupportLFN(); /* Support long file names */
     initSuccessful = 1;
@@ -34,7 +34,7 @@ uint8 sdStart(char filePrefix[], char startString[]) {
     /* Figure out new file number, and record filename */
     uint16 fileNum = 0;
     do {
-        sprintf(dataFileName, "%s-%d.txt", filePrefix, fileNum);
+        sprintf(dataFileName, "%s-%d.txt", fileName, fileNum);
         fileNum++;
     } while(FS_FOpen(dataFileName, "r"));
 
@@ -44,9 +44,9 @@ uint8 sdStart(char filePrefix[], char startString[]) {
         return 0;
     }
 
-    int strLen = strlen(startString);
+    int strLen = strlen(header);
     if (strLen) {
-        FS_Write(dataFile, startString, strLen);
+        FS_Write(dataFile, header, strLen);
         FS_Write(dataFile, "\r\n", 2);   
     }
     
@@ -65,9 +65,16 @@ uint8 sdWriteData(double data, uint8 precision) {
 }
 
 
-
 //––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
 
+/*
+[desc]	Appends a string to a file. String must have length > 0.
+    
+[filename] File to be appended.
+[string] A string to append.
+	
+[ret]	Returns 1 for success, 0 otherwise
+*/
 uint8 sdAppendString(char fileName[], char string[]) {
     if(!initSuccessful) {
         return 0;    
@@ -85,13 +92,19 @@ uint8 sdAppendString(char fileName[], char string[]) {
     }
 }
 
+/*
+[desc]	Closes a file.
+    
+[file] A file to close.
+	
+[ret]	Returns 1 for success, 0 otherwise.
+*/
 uint8 sdClose(FS_FILE* file) {
     if(!FS_FClose(file)) {
         return 1;    
     }
     return 0;
 }
-
 
 
 //EOF
