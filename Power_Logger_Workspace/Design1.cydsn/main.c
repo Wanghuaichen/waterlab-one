@@ -12,8 +12,9 @@
 #include "project.h"
 #include <stdio.h>
 
-#define ADC_RANGE 6.144
-#define ADC_RESOLUTION 4095
+/* (Range - bypass buffer - inputDrain) * +/- range */
+#define ADC_RANGE ((6.144 - 0.190) * 2) 
+#define ADC_RESOLUTION 262144 // 2^n
 
 CY_ISR_PROTO(Minute_Timer_ISR);
 
@@ -38,21 +39,21 @@ int main(void)
     
     char outstring[16] = {};
     while(1) {
-        adcVal = ADC_DelSig_Read16();
-        if (adcVal > 0x0FFF) { //Cap ADC
-            adcVal = 0x0FFF;
-        }
         
-        volts = ((float)adcVal / ADC_RESOLUTION) * ADC_RANGE * 2;
-        sprintf(outstring, "Volts: %.1f", volts);
+        adcVal = ADC_DelSig_Read32();
+        volts = ((float)adcVal / ADC_RESOLUTION) * ADC_RANGE;
+        
+        sprintf(outstring, "Volts: %.3f", volts);
         LCD_ClearDisplay();
         LCD_PrintString(outstring);
+        LCD_Position(1, 0);
+        LCD_PrintString("Acc: +/-1[mV]");
 
         if (minTimerFlag) {
             //Store result in SD Card
             minTimerFlag = 0;
         }
-        CyDelay(50);
+        CyDelay(100);
     }
 }
 
