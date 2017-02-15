@@ -12,6 +12,8 @@
 #include "project.h"
 #include <stdio.h>
 
+#include "sdCard.h"
+
 /* (Range - bypass buffer - inputDrain) * +/- range */
 #define ADC_RANGE ((6.144 - 0.190) * 2) 
 #define ADC_RESOLUTION 262144 // 2^n
@@ -29,6 +31,7 @@ int main(void)
     CyGlobalIntEnable; /* Enable global interrupts. */
 
     LCD_Start();
+    sdStart("prefix", "Some init string");
     ADC_DelSig_Start();
     Minute_Timer_Start();
     Minute_Timer_Interrupt_StartEx(Minute_Timer_ISR);
@@ -47,10 +50,14 @@ int main(void)
         LCD_ClearDisplay();
         LCD_PrintString(outstring);
         LCD_Position(1, 0);
-        LCD_PrintString("Acc: +/-1[mV]");
-
+        if (volts > 3.9) {
+            LCD_PrintString("Acc: +/- 600[mV]");
+        } else {
+            LCD_PrintString("Acc: +/- 1[mV]");
+        }
+        
         if (minTimerFlag) {
-            //Store result in SD Card
+            sdWriteData(volts);
             minTimerFlag = 0;
         }
         CyDelay(100);
