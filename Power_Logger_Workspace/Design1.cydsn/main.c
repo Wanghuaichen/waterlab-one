@@ -33,7 +33,7 @@ int main(void)
 
     LCD_Start();
     
-    while (!sdStart("datafile", "")) {
+    while (!sdStart("data", "1 min timestep")) {
         LCD_ClearDisplay();
         LCD_PrintString("SD ERROR:");
         LCD_Position(1, 0);
