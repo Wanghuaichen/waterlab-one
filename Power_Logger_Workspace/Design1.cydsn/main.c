@@ -62,11 +62,6 @@ int main(void)
         LCD_Position(1, 0);
         sprintf(outstring, "DataPts: %lu", dataPoints);
         LCD_PrintString(outstring);
-//        if (volts > 3.9) {
-//            LCD_PrintString("Acc: +/- 600[mV]");
-//        } else {
-//            LCD_PrintString("Acc: +/- 1[mV]");
-//        }
         
         if (minTimerFlag) {
             if (!sdWriteData(volts, DATA_PRECISION)) {
@@ -75,8 +70,9 @@ int main(void)
                 LCD_Position(1, 0);
                 LCD_PrintString("Could not write data.");
                 break;
+            } else {
+                dataPoints++;
             }
-            dataPoints++;
             minTimerFlag = 0;
         }
         CyDelay(100);
