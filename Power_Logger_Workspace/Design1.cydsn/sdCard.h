@@ -32,5 +32,14 @@ uint8 sdStart(char fileName[], char header[]);
 */
 uint8 sdWriteData(double data, uint8 precision);
 
+/*
+[desc]	Appends a string to the data file.
+
+[string] A string to append on a new line.
+	
+[ret]	Returns 1 for success, 0 otherwise
+*/
+uint8 sdWriteDataString(char string[]);
+
     
 #endif //SD_CARD_H

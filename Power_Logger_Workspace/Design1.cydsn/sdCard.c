@@ -64,6 +64,15 @@ uint8 sdWriteData(double data, uint8 precision) {
     }
 }
 
+uint8 sdWriteDataString(char string[]) {
+    sprintf(string, "%s\r\n", string);
+    if (sdAppendString(dataFileName, string) && (sdAppendString(dataFileName, "\r\n"))) {
+        return 1;   
+    } else {
+        return 0;
+    }
+}
+
 
 //––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
 
