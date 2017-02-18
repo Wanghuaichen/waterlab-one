@@ -13,13 +13,40 @@
 #define WATER_MACHINE_H
 
 
+
+/* Defines for choosing which state-machine to run */
+//#define MACHINE_LOW_POWER
+// #define MACHINE_COMPROMISE_POWER
+#define MACHINE_HIGH_POWER
+
+#define MAX_DEVICE_COUNT 10
+#define MAX_TANK_COUNT MAX_DEVICE_COUNT
+
+#define TANK_FULL_THRESHOLD 90
+#define TANK_LOW_THRESHOLD 5
+#define BATTERY_FULL_THRESHOLD 90
+#define BATTERY_LOW_THRESHOLD 20 //Percentage of energy at which the machine waits to recharge
+
+
+#define DEFAULT_BATTERY_SIZE 1000
+#define RECHARGE_PER_CYCLE 10
+#define CYCLES_PER_DAY 24 // hours/day
+
+
+
+
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
 
+
 /*
-[desc]	Initializes the default machine. Currently the only machine implementation is
-		the default machine. Does not start the machine.
+[desc]	Initializes a machine based on the #defines above.
+		Options are:
+			MACHINE_LOW_POWER
+			MACHINE_COMPROMISE_POWER
+			MACHINE_HIGH_POWER	   
 */
-void defaultMachineInit(void);
+void machineConfigInit(void);
+
 
 /*
 [desc]	Initializes the default machine. Currently the only machine implementation is
@@ -40,5 +67,7 @@ void runMachine(int cycles, float timePerCycle, int graphicsEnable);
 */
 int togglePower(void);
 
+
+#include "machineConfig.c"
 
 #endif //SHELL_H

@@ -99,7 +99,7 @@ void runCommand(char command[]) {
 			break;
 
 		case RESET:
-			defaultMachineInit();
+			machineConfigInit();
 			printf("\tMachine Reset\n\r");
 			break;
 

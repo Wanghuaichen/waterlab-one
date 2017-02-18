@@ -13,24 +13,14 @@
 #include <stdlib.h>
 #include "machine.h"
 
-
 #define TRUE 1
 #define FALSE 0
 #define INFINITY 999999
 
-#define TANK_FULL_THRESHOLD 90
-#define TANK_LOW_THRESHOLD 5
-#define BATTERY_FULL_THRESHOLD 90
-#define BATTERY_LOW_THRESHOLD 20 //Percentage of energy at which the machine waits to recharge
-#define DEFAULT_BATTERY_SIZE 1000
-#define RECHARGE_PER_CYCLE 10
-#define CYCLES_PER_DAY 24 // hours/day
 #define HALF_DAY (CYCLES_PER_DAY / 2)
 
 #define TANK_PRINT_WIDTH 4
 #define TANK_PRINT_HEIGHT 11
-#define MAX_DEVICE_COUNT 10
-#define MAX_TANK_COUNT MAX_DEVICE_COUNT
 #define SPACING 3
 
 
@@ -55,37 +45,42 @@ typedef struct Battery {
 	int max;
 } Battery;
 
-enum STATES {
-	STATE_IDLE,
-	STATE_RUN_FILTER_PUMP,
-	STATE_RUN_RO_PUMP,
-	STATE_RUN_UV,
-} machineState;
-
 
 //––––––  Private Variables  ––––––//
-Device* devices[MAX_TANK_COUNT] = {};
-int numDevices;
-Tank* tanks[MAX_TANK_COUNT] = {};
-int numTanks;
-Battery* mainBattery;
 int infiniteEnergy;
+int daytime;
+int numDevices;
+int numTanks;
+
+int machineState;
 int totalCycles;
 int deviceCycles;
 int idleCycles;
-int daytime;
 int waterPurified;
 int waterRejected;
 
+Device* filterPump;
+Device* roPump;
+Device* roReject;
+Device* uv;
+Device* drain;
+
+Device* devices[MAX_DEVICE_COUNT] = {};
+Tank* tanks[MAX_TANK_COUNT] = {};
+Battery* mainBattery;
 
 
 //––––––  Private Declarations  ––––––//
+
 Tank* tank(int volume, int quantity, float turbidity);
 Device* device(int enable, int flowRate, int consumption, float newTurbidity, Tank* source, Tank* sink);
 Battery* battery(int remaining, int max);
+void machineInit(Tank* tankArr[MAX_TANK_COUNT], Device* deviceArr[MAX_DEVICE_COUNT], int batterySize, int startState);
 void updateMachine(void);
-int moveWater(Tank* source, Tank* sink, int amount, float sourceTurbidity);
+int deviceAvailable(Device* device);
+void runAllDevices(void);
 int runDevice(Device* device);
+int moveWater(Tank* source, Tank* sink, int amount, float sourceTurbidity);
 void printTanks(Tank* tankArr[MAX_TANK_COUNT]);
 void stageTank(char tankStage[][TANK_PRINT_WIDTH], Tank* tank);
 void printTurbidities(Tank* tank[MAX_TANK_COUNT]);
@@ -93,72 +88,15 @@ void printBattery(Battery* battery);
 void printGraphics(void);
 void printDebug(void);
 void printStats(void);
-int deviceAvailable(Device* device);
 int isFull(Tank* tank);
 int isEmpty(Tank* tank);
 void delay(double dly);
 
 
-//––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
+//––––––––––––––––––––––––––––––  State Machines  ––––––––––––––––––––––––––––––//
 
-void runMachine(int cycles, float timePerCycle, int graphicsEnable) {
-	int i, j=0;
-	int tmpCycles = deviceCycles + idleCycles;
-	while(deviceCycles + idleCycles < cycles + tmpCycles) { //Run the machine for <cycles> device on cycles 
-		mainBattery->remaining += daytime ? RECHARGE_PER_CYCLE : 0; //recharge if its daytime
-		if (mainBattery->remaining > mainBattery->max) { //cap refilling at battery max
-			mainBattery->remaining = mainBattery->max; 
-		}
-		
-		updateMachine(); // run the state machine
-		if(graphicsEnable) {
-			printGraphics();
-			delay(timePerCycle); //Waste time so the user can watch the tanks change graphically
-		}
-		if (totalCycles++ % HALF_DAY == 0) { // invert daytime every half day
-			daytime = daytime ? FALSE : TRUE;  
-		}
-	}
-	/* Print the final state even with graphics disabled */
-	printGraphics();
-	printf("\n----- Done -----\n\r");
-	printf("Ran %d cycles\n\n\r" , cycles);
-	printStats();
-}
+void machineConfigInit(void) {
 
-/*
-[desc]	Initializes a machine described in two storage arrays. Not yet public
-		due to the low-modularity of machine implementation.
-
-[tankArr] Array containing Tank objects, size must be MAX_TANK_COUNT
-[deviceArr]	Array containing Device objects, size must be MAX_TANK_COUNT	
-[batterySize] Size of the battery for the machine		   
-*/
-void machineInit(Tank* tankArr[MAX_TANK_COUNT], Device* deviceArr[MAX_TANK_COUNT], int batterySize) {
-	int i;
-	for (i=0; i < MAX_TANK_COUNT; i++) //Copy to global
-		tanks[i] = tankArr[i];
-	for (i=0; i < MAX_TANK_COUNT; i++)
-		devices[i] = deviceArr[i];
-
-	for (i=0; tanks[i] != NULL; i++); //Counts for bookeeping
-	numTanks = i;
-	for (i=0; devices[i] != NULL; i++);
-	numDevices = i;
-	machineState = STATE_IDLE;
-	infiniteEnergy = FALSE;
-
-	mainBattery = battery(batterySize, batterySize);
-	totalCycles = 0;
-	deviceCycles = 0;
-	idleCycles = 0;
-	daytime = FALSE;
-	waterPurified = 0;
-	waterRejected = 0;
-}
-
-
-void defaultMachineInit(void) {
 	//Initialized outside of array for readable device initialization
 	/* tank(volume, quantity, turbidity) */
 	Tank* source = tank(INFINITY, INFINITY, 5.0);
@@ -174,90 +112,35 @@ void defaultMachineInit(void) {
 	tankArr[3] = tank4;
 	tankArr[4] = sink;
 
-	Device* deviceArr[MAX_TANK_COUNT] = {};
+	Device* deviceArr[MAX_DEVICE_COUNT] = {};
 	/* device(enable, flowRate, powerconsumption, newTurbidity, source, sink) */
-	//Filter pump
+
 	deviceArr[0] = device(FALSE, 30, 10, 3.0, source, tank2);
-	//RO pump
+	filterPump = deviceArr[0];
+
 	deviceArr[1] = device(FALSE, 8, 10, 0.3, tank2, tank3);
-	deviceArr[4] = device(FALSE, 16, 0, -1, tank2, sink); //RO reject water
-	//UV disinfect
+	roPump = deviceArr[1];
+	deviceArr[4] = device(FALSE, 16, 0, -1, tank2, sink);
+	roReject = deviceArr[4];
+
 	deviceArr[2] = device(FALSE, 60, 30, -1, tank3, tank4);
+	uv = deviceArr[2];
 	//Slow drain
 	deviceArr[3] = device(FALSE, 10, 0, -1, tank4, sink);
-	
-	machineInit(tankArr, deviceArr, DEFAULT_BATTERY_SIZE); //Load tanks and devices into global arrays
+	drain = deviceArr[3];
+
+	machineInit(tankArr, deviceArr, DEFAULT_BATTERY_SIZE, 0); //Load tanks and devices into global arrays
 	printf(""); //Very nasty fix to make the terminal keep up with constant printing.rer
 }
 
+#ifdef MACHINE_LOW_POWER 
 
-int togglePower(void) {
-	mainBattery->remaining = mainBattery->max;
-	infiniteEnergy = infiniteEnergy ? FALSE : TRUE;
-	return infiniteEnergy;
-}
-
-
-//––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
-
-/*
-[desc]	Constructor for a Tank object. Use devices to move water betwen tanks.
-			Limitless source: volume = INFINITY, capacity = INFINITY
-			Bottomless sink: volume = INFINITY, capacity = 0
-
-[volume] Int representing the maximum capacity of the tank.
-[quantity] Int representing how much water is currently in the tank.
-[turbidity] Float representing the tank's turbidity.
-
-[ret]	A pointer to the newly created tank object.	   
-*/
-Tank* tank(int volume, int quantity, float turbidity) {
-    Tank* t = (Tank*) malloc(sizeof(Tank));
-    t->turbidity = turbidity;
-    t->volume = volume;
-    t->quantity = quantity;
-	return t;
-}
-
-/*
-[desc]	Constructor for a Device object. Devices are designed to move water
-		between tanks. Only moves water when they are on.
-
-[enable] Decides whether or not the device moves water each cycle.
-[flowRate] Water to be moved by the device per cycle if enable = 1.
-[consumpion] Power consumed by the device (not yet implemented).
-[newTurbidity] Maximum turbidity of water flowing out of this device.
-[source] Tank to source from.
-[sink] Tank to sink into.
-
-[ret]	A pointer to the newly created device object.	   
-*/
-Device* device(int enable, int flowRate, int consumption, float newTurbidity, Tank* source, Tank* sink) {
-	Device* d = (Device*) malloc(sizeof(Device));
-	d->enable = enable;
-	d->flowRate = flowRate;
-	d->consumption = consumption;
-	d->newTurbidity = newTurbidity;
-	d->source = source;
-	d->sink = sink;
-	return d;
-}
-
-/*
-[desc]	Constructor for a Battery object. Batteries power devices.
-
-[remaining] Int representing the remaining energy in the battery.
-[max] Int representing the maximum energy the battery can store.
-
-[ret]	A pointer to the newly created battery object.	   
-*/
-Battery* battery(int remaining, int max) {
-    Battery* b = (Battery*) malloc(sizeof(Battery));
-    b->remaining = remaining;
-    b->max = max;
-	return b;
-}
-
+enum LOW_POWER_STATES {
+	STATE_IDLE,
+	STATE_RUN_FILTER_PUMP,
+	STATE_RUN_RO_PUMP,
+	STATE_RUN_UV,
+};
 
 /*
 [desc]	This is the system state-machine. Runs in the following way:
@@ -267,12 +150,6 @@ Battery* battery(int remaining, int max) {
 					Return to the idle state once a device can no longer run
 */
 void updateMachine(void) {
-	int i;
-	Device* filterPump = devices[0];
-	Device* roPump = devices[1];
-	Device* roReject = devices[4];
-	Device* uv = devices[2];
-	Device* drain = devices[3];
 
 	switch (machineState) {
 		case STATE_IDLE:
@@ -282,7 +159,7 @@ void updateMachine(void) {
 			} else if (deviceAvailable(filterPump)) { // Filter pump
 				filterPump->enable = TRUE;
 				machineState = STATE_RUN_FILTER_PUMP;
-			} else if (deviceAvailable(roPump)) { // RO pump
+			} else if (deviceAvailable(roPump) && deviceAvailable(roReject)) { // RO pump
 				roPump->enable = TRUE;
 				roReject->enable = TRUE;
 				machineState = STATE_RUN_RO_PUMP;
@@ -293,10 +170,8 @@ void updateMachine(void) {
 			break;
 
 		case STATE_RUN_FILTER_PUMP:
-			if (deviceAvailable(filterPump)) {
-				runDevice(filterPump);
-				deviceCycles++;
-			} else {
+
+			if (!deviceAvailable(filterPump)) {
 				filterPump->enable = FALSE;
 				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
 					machineState = STATE_IDLE;
@@ -312,12 +187,8 @@ void updateMachine(void) {
 			break;
 
 		case STATE_RUN_RO_PUMP:
-			if (deviceAvailable(roPump)) {
-				runDevice(roPump);
-				waterRejected += runDevice(roReject);
-				deviceCycles++;
-				waterRejected += runDevice(roReject);
-			} else {
+			
+			if (!deviceAvailable(roPump) || deviceAvailable(roReject)) {
 				roPump->enable = FALSE;
 				roReject->enable = FALSE;
 				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
@@ -333,10 +204,7 @@ void updateMachine(void) {
 			break;
 
 		case STATE_RUN_UV:
-			if (deviceAvailable(uv)) {
-				waterPurified += runDevice(uv);
-				deviceCycles++;
-			} else {
+			if (!deviceAvailable(uv)) {
 				uv->enable = FALSE;
 				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
 					machineState = STATE_IDLE;
@@ -352,16 +220,198 @@ void updateMachine(void) {
 			break;
 	};
 	
-	// for(i=0; devices[i] != NULL && i < MAX_TANK_COUNT; i++) {
-	// 	if (devices[i]->enable) {
-	// 		runDevice(devices[i]);
-	// 	}
-	// }
 	if (deviceAvailable(drain)) {
 		drain->enable = TRUE;
-		runDevice(drain);
+	} else {
 		drain->enable = FALSE;
 	}
+}
+#endif /* MACHINE_LOW_POWER */
+
+
+#ifdef MACHINE_COMPROMISE_POWER
+
+#endif /* MACHINE_COMPROMISE_POWER */
+
+
+#ifdef MACHINE_HIGH_POWER
+
+enum HIGH_POWER_STATES {
+	STATE_IDLE,
+	STATE_RUN_FILTER_PUMP,
+	STATE_RUN_RO_PUMP,
+	STATE_RUN_UV,
+};
+
+/*
+[desc]	This is the system state-machine. Runs in the following way:
+			If the battery power is low, recharge until BATTERY_FULL_THRESHOLD
+			If a device can run run it, if not try the next one
+				Once a device is running, continue until the 'sink tank' is full or out of power
+					Return to the idle state once a device can no longer run
+*/
+void updateMachine(void) {
+
+	switch (machineState) {
+		case STATE_IDLE:
+			if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
+				idleCycles++;
+				break;
+			} else if (deviceAvailable(filterPump)) { // Filter pump
+				filterPump->enable = TRUE;
+				machineState = STATE_RUN_FILTER_PUMP;
+			} else if (deviceAvailable(roPump) && deviceAvailable(roReject)) { // RO pump
+				roPump->enable = TRUE;
+				roReject->enable = TRUE;
+				machineState = STATE_RUN_RO_PUMP;
+			} else if (deviceAvailable(uv)) { // UV 
+				uv->enable = TRUE;
+				machineState = STATE_RUN_UV;
+			}
+			break;
+
+		case STATE_RUN_FILTER_PUMP:
+
+			if (!deviceAvailable(filterPump)) {
+				filterPump->enable = FALSE;
+				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
+					machineState = STATE_IDLE;
+				} else if (deviceAvailable(roPump)) { // RO pump
+					roPump->enable = TRUE;
+					roReject->enable = TRUE;
+					machineState = STATE_RUN_RO_PUMP;
+				} else if (deviceAvailable(uv)) { // UV 
+					uv->enable = TRUE;
+					machineState = STATE_RUN_UV;
+				}
+			}
+			break;
+
+		case STATE_RUN_RO_PUMP:
+			
+			if (!deviceAvailable(roPump) || deviceAvailable(roReject)) {
+				roPump->enable = FALSE;
+				roReject->enable = FALSE;
+				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
+					machineState = STATE_IDLE;
+				} else if (deviceAvailable(filterPump)) { // Filter pump
+					filterPump->enable = TRUE;
+					machineState = STATE_RUN_FILTER_PUMP;
+				} else if (deviceAvailable(uv)) { // UV 
+					uv->enable = TRUE;
+					machineState = STATE_RUN_UV;
+				}
+			}
+			break;
+
+		case STATE_RUN_UV:
+			if (!deviceAvailable(uv)) {
+				uv->enable = FALSE;
+				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
+					machineState = STATE_IDLE;
+				} else if (deviceAvailable(filterPump)) { // Filter pump
+					filterPump->enable = TRUE;
+					machineState = STATE_RUN_FILTER_PUMP;
+				} else if (deviceAvailable(roPump)) { // RO pump
+					roPump->enable = TRUE;
+					roReject->enable = TRUE;
+					machineState = STATE_RUN_RO_PUMP;
+				}
+			}
+			break;
+	};
+	
+	if (deviceAvailable(drain)) {
+		drain->enable = TRUE;
+	} else {
+		drain->enable = FALSE;
+	}
+}
+#endif /* MACHINE_HIGH_POWER */
+
+
+//––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
+
+void runMachine(int cycles, float timePerCycle, int graphicsEnable) {
+	int i, j=0;
+	int tmpCycles = deviceCycles + idleCycles;
+	while(deviceCycles + idleCycles < cycles + tmpCycles) { //Run the machine for <cycles> device on cycles 
+		mainBattery->remaining += daytime ? RECHARGE_PER_CYCLE : 0; //recharge if its daytime
+		if (mainBattery->remaining > mainBattery->max) { //cap refilling at battery max
+			mainBattery->remaining = mainBattery->max; 
+		}
+		
+		if(graphicsEnable) {
+			printGraphics();
+			delay(timePerCycle); //Waste time to watch the tanks change graphically
+		}
+		updateMachine(); // update the state machine
+		runAllDevices();
+
+		if (totalCycles++ % HALF_DAY == 0) { // invert daytime every half day
+			daytime = daytime ? FALSE : TRUE;  
+		}
+	}
+	/* Print the final state even with graphics disabled */
+	printGraphics();
+	printf("\n----- Done -----\n\r");
+	printf("Ran %d cycles\n\n\r" , cycles);
+	printStats();
+}
+
+
+void machineInit(Tank* tankArr[MAX_TANK_COUNT], Device* deviceArr[MAX_DEVICE_COUNT], int batterySize, int startState) {
+	int i;
+	for (i=0; i < MAX_TANK_COUNT; i++) //Copy to global
+		tanks[i] = tankArr[i];
+	for (i=0; i < MAX_DEVICE_COUNT; i++)
+		devices[i] = deviceArr[i];
+
+	for (i=0; tanks[i] != NULL; i++); //Counts for bookeeping
+	numTanks = i;
+	for (i=0; devices[i] != NULL; i++);
+	numDevices = i;
+	machineState = startState;
+	infiniteEnergy = FALSE;
+
+	mainBattery = battery(batterySize, batterySize);
+	totalCycles = 0;
+	deviceCycles = 0;
+	idleCycles = 0;
+	daytime = FALSE;
+	waterPurified = 0;
+	waterRejected = 0;
+}
+
+
+int togglePower(void) {
+	mainBattery->remaining = mainBattery->max;
+	infiniteEnergy = infiniteEnergy ? FALSE : TRUE;
+	return infiniteEnergy;
+}
+
+
+//––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
+
+/*
+[desc]	Runs every available device. Counts whether or not a device was run.
+		Adds some stats for specific devices.
+*/
+void runAllDevices(void) {
+	int water, i;
+	int deviceRun = FALSE;
+	for(i=0; devices[i] != NULL && i < MAX_DEVICE_COUNT; i++) {
+		if (devices[i]->enable) {
+			deviceRun = TRUE;
+			water = runDevice(devices[i]);
+			if (devices[i] == roReject) {
+				waterRejected += water;
+			} else if (devices[i] == uv) {
+				waterPurified += water;
+			}
+		}
+	}
+	deviceCycles += deviceRun;
 }
 
 /*
@@ -462,7 +512,7 @@ int isEmpty(Tank* tank) {
 
 /*
 [desc]	Determines whether or not a device can be run for the next cycle based
-		on power to be consumed, and the fullness of the source tank.
+		on power to be consumed, and the fullness of the source and sink tanks.
 
 [tank] A device to examine.
 
@@ -587,21 +637,16 @@ void printBattery(Battery* battery) {
 [desc]	Prints debug statistics.
 */
 void printDebug(void) {
-	char state[30] = {};
-	if (machineState == 0) {
-		sprintf(state, "STATE_IDLE");
-	} else if (machineState == 1) {
-		sprintf(state, "STATE_RUN_FILTER_PUMP");
-	} else if (machineState == 2) {
-		sprintf(state, "STATE_RUN_RO_PUMP");
-	} else if (machineState == 3) {
-		sprintf(state, "STATE_RUN_UV");
-	}
+
 	printf("\n\r[DEBUG STATS]");
-	printf("\n\r\tState: %s -- %d", state, machineState);
+	printf("\n\r\tState: %d", machineState);
 	printf("\n\r\tTotal State-machine Cycles: %d", totalCycles);
 	printf("\n\r\tTotal Idle Cycles: %d", idleCycles);
 	printf("\n\r\tDevice Cycles: %d", deviceCycles);
+
+	printf("\n\n\r\tWater purified: %d", waterPurified);
+	printf("\n\r\tWater rejected: %d", waterRejected);
+
 	printf("\n\r[END]\n\r");
 }
 
@@ -628,8 +673,65 @@ void printStats(void) {
 }
 
 
+//––––––––––––––––––––––––––––––  Constructors  ––––––––––––––––––––––––––––––//
 
+/*
+[desc]	Constructor for a Tank object. Use devices to move water betwen tanks.
+			Limitless source: volume = INFINITY, capacity = INFINITY
+			Bottomless sink: volume = INFINITY, capacity = 0
 
+[volume] Int representing the maximum capacity of the tank.
+[quantity] Int representing how much water is currently in the tank.
+[turbidity] Float representing the tank's turbidity.
+
+[ret]	A pointer to the newly created tank object.	   
+*/
+Tank* tank(int volume, int quantity, float turbidity) {
+    Tank* t = (Tank*) malloc(sizeof(Tank));
+    t->turbidity = turbidity;
+    t->volume = volume;
+    t->quantity = quantity;
+	return t;
+}
+
+/*
+[desc]	Constructor for a Device object. Devices are designed to move water
+		between tanks. Only moves water when they are on.
+
+[enable] Decides whether or not the device moves water each cycle.
+[flowRate] Water to be moved by the device per cycle if enable = 1.
+[consumpion] Power consumed by the device (not yet implemented).
+[newTurbidity] Maximum turbidity of water flowing out of this device.
+[source] Tank to source from.
+[sink] Tank to sink into.
+
+[ret]	A pointer to the newly created device object.	   
+*/
+Device* device(int enable, int flowRate, int consumption, float newTurbidity, Tank* source, Tank* sink) {
+	Device* d = (Device*) malloc(sizeof(Device));
+	d->enable = enable;
+	d->flowRate = flowRate;
+	d->consumption = consumption;
+	d->newTurbidity = newTurbidity;
+	d->source = source;
+	d->sink = sink;
+	return d;
+}
+
+/*
+[desc]	Constructor for a Battery object. Batteries power devices.
+
+[remaining] Int representing the remaining energy in the battery.
+[max] Int representing the maximum energy the battery can store.
+
+[ret]	A pointer to the newly created battery object.	   
+*/
+Battery* battery(int remaining, int max) {
+    Battery* b = (Battery*) malloc(sizeof(Battery));
+    b->remaining = remaining;
+    b->max = max;
+	return b;
+}
 
 
 

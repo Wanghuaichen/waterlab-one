@@ -7,9 +7,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include "shell.h"
 #include "machine.h"
+
+
+
 
 int main (int argc, char* argv[]) {
 	//system("/bin/stty raw echo inlcr");
@@ -17,7 +19,8 @@ int main (int argc, char* argv[]) {
 	printf("----- Machine -----\n\n\r");
 	printf("\n\r%s", SHELL_PROMPT);
 
-	defaultMachineInit();
+	// defaultMachineInit();
+	machineConfigInit();
 	
 	while(shell(getchar()));
 
@@ -25,6 +28,7 @@ int main (int argc, char* argv[]) {
 	printf("\n\r");
 	return 0;
 }
+
 
 
 
