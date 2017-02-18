@@ -15,7 +15,7 @@
 
 
 /* Defines for choosing which state-machine to run */
-//#define MACHINE_LOW_POWER
+// #define MACHINE_LOW_POWER
 // #define MACHINE_COMPROMISE_POWER
 #define MACHINE_HIGH_POWER
 
@@ -67,7 +67,5 @@ void runMachine(int cycles, float timePerCycle, int graphicsEnable);
 */
 int togglePower(void);
 
-
-#include "machineConfig.c"
 
 #endif //SHELL_H
