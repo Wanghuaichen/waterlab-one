@@ -13,6 +13,9 @@
 *.rpt
 *.svd
 
+# Cypress backups
+Backup
+
 
 # Big generated source file folders
 
