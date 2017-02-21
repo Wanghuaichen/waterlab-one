@@ -17,10 +17,20 @@ int main(void)
     
     while(1) {
         
-        if (Switch1_In_Pin_Read()) {
+        if (!Switch1_In_Pin_Read()) {
+            LED4_Pin_Write(1);
+            Relay1_Out_Pin_Write(1);
+        } else {
+            LED4_Pin_Write(0);
+            Relay1_Out_Pin_Write(0);
+        }
+        
+        if (!Switch2_In_Pin_Read()) {
             LED3_Pin_Write(1);
+            Relay2_Out_Pin_Write(1);
         } else {
             LED3_Pin_Write(0);
+            Relay2_Out_Pin_Write(0);
         }
         CyDelay(10);
     }
