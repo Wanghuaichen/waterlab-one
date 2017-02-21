@@ -15,7 +15,17 @@ int main(void)
     LCD_Start();
     LCD_PrintString("Hello World");
     
+    while(1) {
+        
+        if (Switch1_In_Pin_Read()) {
+            LED3_Pin_Write(1);
+        } else {
+            LED3_Pin_Write(0);
+        }
+        CyDelay(10);
+    }
+    
     for(;;); /* Just in case */
 }
 
-/* [] END OF FILE */
+/* EOF */
