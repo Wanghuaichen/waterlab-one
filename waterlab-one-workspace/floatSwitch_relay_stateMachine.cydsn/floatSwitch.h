@@ -1,13 +1,22 @@
 /*
     Carl Lindquist
     Feb 27, 2017
+
+    Interface for using float switches with the 
+    PSoC 5LP. This could absolutely represent any two-state
+    switch, FSWITCH specification is only used for verbosity.
+
+    This library is currently entirely event-driven. It has some
+    debouncing built in.
 */
+
+#ifndef FLOAT_SWITCH_H
+#define FLOAT_SWITCH_H
 
 #include "project.h"
 
-#define FSWITCH_DEBOUNCE_PERIOD 4
+#define FSWITCH_DEBOUNCE_PERIOD 4 /* Milliseconds */
 
-#define fsEventOccured(FS_EVENT) ((fswitchEvents & FS_EVENT) != 0)
 
 typedef enum {
     FSWITCH_EVENT_NONE = 0x00,
@@ -23,9 +32,26 @@ typedef enum {
 
 uint16 fswitchEvents;
 
+//––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
+
+/*
+[desc]  Initialization function for the floatSwitch library. Starts the interrupt
+        for testing float switch events.
+*/
 void floatSwitchInit(void);
 
+/*
+[desc]  #Macro for testing whether or not an event has occurred. Avoids the ugly
+        'and-ing' of fswitchEvents and the event in question explicitly. Note that
+        the fswitchEvents variable should be cleared of events externally, it will
+        never clear itself.
+
+[FS_EVENT] A FloatSwitchEventFlag to test the truth of.
+    
+[ret]   1 if the event occurred, 0 otherwise.
+*/
+#define fsEventOccured(FS_EVENT) ((fswitchEvents & FS_EVENT) != 0)
 
 
 
-/* EOF */
+#endif /* FLOAT_SWITCH_H */
