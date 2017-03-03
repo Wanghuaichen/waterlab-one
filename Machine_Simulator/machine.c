@@ -238,9 +238,7 @@ void updateMachine(void) {
 
 enum HIGH_POWER_STATES {
 	STATE_IDLE,
-	STATE_RUN_FILTER_PUMP,
-	STATE_RUN_RO_PUMP,
-	STATE_RUN_UV,
+	STATE_RUN,
 };
 
 /*
@@ -253,73 +251,51 @@ enum HIGH_POWER_STATES {
 void updateMachine(void) {
 
 	switch (machineState) {
+
 		case STATE_IDLE:
-			if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
+			if (mainBattery->remaining*100 / mainBattery->max < BATTERY_FULL_THRESHOLD / 2) {
 				idleCycles++;
 				break;
-			} else if (deviceAvailable(filterPump)) { // Filter pump
+			}
+			if (deviceAvailable(filterPump)) { // Filter pump
 				filterPump->enable = TRUE;
-				machineState = STATE_RUN_FILTER_PUMP;
-			} else if (deviceAvailable(roPump) && deviceAvailable(roReject)) { // RO pump
+				machineState = STATE_RUN;
+			}
+			if (deviceAvailable(roPump) && deviceAvailable(roReject)) { // RO pump
 				roPump->enable = TRUE;
 				roReject->enable = TRUE;
-				machineState = STATE_RUN_RO_PUMP;
-			} else if (deviceAvailable(uv)) { // UV 
+				machineState = STATE_RUN;
+			}
+			if (deviceAvailable(uv)) { // UV 
 				uv->enable = TRUE;
-				machineState = STATE_RUN_UV;
+				machineState = STATE_RUN;
 			}
 			break;
 
-		case STATE_RUN_FILTER_PUMP:
-
-			if (!deviceAvailable(filterPump)) {
-				filterPump->enable = FALSE;
-				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
-					machineState = STATE_IDLE;
-				} else if (deviceAvailable(roPump)) { // RO pump
-					roPump->enable = TRUE;
-					roReject->enable = TRUE;
-					machineState = STATE_RUN_RO_PUMP;
-				} else if (deviceAvailable(uv)) { // UV 
-					uv->enable = TRUE;
-					machineState = STATE_RUN_UV;
-				}
+		case STATE_RUN:
+			if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
+				machineState = STATE_IDLE;
+				break;
 			}
-			break;
-
-		case STATE_RUN_RO_PUMP:
-			
-			if (!deviceAvailable(roPump) || deviceAvailable(roReject)) {
+			if (deviceAvailable(filterPump)) {
+				filterPump->enable = TRUE;
+			} else {
+				filterPump = FALSE;
+			}
+			if (deviceAvailable(roPump) && deviceAvailable(roReject)) {
+				roPump->enable = TRUE;
+				roReject->enable = TRUE;
+			} else {
 				roPump->enable = FALSE;
 				roReject->enable = FALSE;
-				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
-					machineState = STATE_IDLE;
-				} else if (deviceAvailable(filterPump)) { // Filter pump
-					filterPump->enable = TRUE;
-					machineState = STATE_RUN_FILTER_PUMP;
-				} else if (deviceAvailable(uv)) { // UV 
-					uv->enable = TRUE;
-					machineState = STATE_RUN_UV;
-				}
 			}
-			break;
-
-		case STATE_RUN_UV:
-			if (!deviceAvailable(uv)) {
+			if (deviceAvailable(uv)) {
+				uv->enable = TRUE;
+			} else {
 				uv->enable = FALSE;
-				if (mainBattery->remaining*100 / mainBattery->max < BATTERY_LOW_THRESHOLD) {
-					machineState = STATE_IDLE;
-				} else if (deviceAvailable(filterPump)) { // Filter pump
-					filterPump->enable = TRUE;
-					machineState = STATE_RUN_FILTER_PUMP;
-				} else if (deviceAvailable(roPump)) { // RO pump
-					roPump->enable = TRUE;
-					roReject->enable = TRUE;
-					machineState = STATE_RUN_RO_PUMP;
-				}
 			}
 			break;
-	};
+	}
 	
 	if (deviceAvailable(drain)) {
 		drain->enable = TRUE;
@@ -345,7 +321,7 @@ void runMachine(int cycles, float timePerCycle, int graphicsEnable) {
 			printGraphics();
 			delay(timePerCycle); //Waste time to watch the tanks change graphically
 		}
-		updateMachine(); // update the state machine
+
 		runAllDevices();
 
 		if (totalCycles++ % HALF_DAY == 0) { // invert daytime every half day
@@ -401,6 +377,7 @@ void runAllDevices(void) {
 	int water, i;
 	int deviceRun = FALSE;
 	for(i=0; devices[i] != NULL && i < MAX_DEVICE_COUNT; i++) {
+		updateMachine(); // update the state machine
 		if (devices[i]->enable) {
 			deviceRun = TRUE;
 			water = runDevice(devices[i]);
@@ -658,7 +635,7 @@ void printGraphics(void) {
 	printTanks(tanks);
 	printTurbidities(tanks);
 	printBattery(mainBattery);
-	// printDebug();
+	printDebug();
 }
 
 /*
