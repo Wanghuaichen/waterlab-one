@@ -14,7 +14,7 @@
 #include <stdio.h>
 
 #define DEBOUNCE_ARRAY_SIZE (FSWITCH_DEBOUNCE_PERIOD + 2)
-#define NEW (FSWITCH_DEBOUNCE_PERIOD + 1)
+#define NEW (DEBOUNCE_ARRAY_SIZE - 1)
 #define OLD 0
 
 
@@ -45,7 +45,7 @@ void floatSwitchInit(void) {
 
 
 uint16 fswitchCheckEvents(void) {
-    static uint16 states[FSWITCH_DEBOUNCE_PERIOD + 1];
+    static uint16 states[DEBOUNCE_ARRAY_SIZE];
     states[NEW] = fswitchGetStates();
     
     /*  Remember your old value. This effectively buffers events
