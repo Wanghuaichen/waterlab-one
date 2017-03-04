@@ -3,12 +3,13 @@
 <!--This file is machine generated and read. It is not intended to be edited by hand.-->
 <!--Due to this, there is no schema for this file.-->
 <CyGuid_2867d519-54d2-4c01-9830-c51cb08bc3dd type_name="CyDesigner.Common.ProjMgmt.Model.CyPrjMgmtWorkspaceSerialize" version="5" xml_contents_version="3" name="waterlab-one-workspace" persistent="waterlab-one-workspace.cywrk" platform="NOT_USED">
-<current_project name=".\floatSwitch_relay_stateMachine.cydsn\floatSwitch_relay_stateMachine.cyprj" />
+<current_project name=".\machine-without-feedback.cydsn\machine-without-feedback.cyprj" />
 <wrkspc_folders />
 <files />
 <projects>
 <v>.\drive-relay.cydsn\drive-relay.cyprj</v>
 <v>.\floatSwitch_relay_stateMachine.cydsn\floatSwitch_relay_stateMachine.cyprj</v>
+<v>.\machine-without-feedback.cydsn\machine-without-feedback.cyprj</v>
 </projects>
 <workspace_id v="c0356fe3-3cfa-445b-98bf-05e2edbdf9ee" />
 <WriteAppVersionLastSavedWith v="4.0.0.432" />
