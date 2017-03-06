@@ -83,27 +83,6 @@ int main(void)
     }
     
     
-    
-//    while(TRUE) {
-//        
-//        if (!Switch1_In_Pin_Read()) {
-//            LED4_Pin_Write(TRUE);
-//            Pump1_Out_Pin_Write(TRUE);
-//        } else {
-//            LED4_Pin_Write(TRUE);
-//            Pump1_Out_Pin_Write(TRUE);
-//        }
-//        
-//        if (!Switch2_In_Pin_Read()) {
-//            LED3_Pin_Write(TRUE);
-//            Pump2_Out_Pin_Write(TRUE);
-//        } else {
-//            LED3_Pin_Write(FALSE);
-//            Pump2_Out_Pin_Write(FALSE);
-//        }
-//        CyDelay(10);
-//    }
-    
     for(;;); /* Just in case */
 }
 
