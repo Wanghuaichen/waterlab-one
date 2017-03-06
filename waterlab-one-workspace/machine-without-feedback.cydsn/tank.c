@@ -49,7 +49,9 @@ CY_ISR_PROTO(FSwitch_ISR);
 uint16 fswitchCheckEvents(void);
 uint8 fsEventOccured(uint16 fsEvent, uint16 fswitchEvents);
 uint16 fswitchGetStates(void);
+uint8 tankDetermineState(uint8 emptySwitch, uint8 fullSwitch, uint16 fswitchStates);
 uint16 tankCheckEvents(uint16 fswitchEvents);
+
 
 
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
@@ -59,6 +61,29 @@ void tankInit(void) {
     tankEvents = TANK_EVENT_NONE;
 }
 
+
+tankStruct tankGetStates(void) {
+    uint16 fswitchStates = fswitchGetStates();
+    tankStruct tankStates = {};
+    
+    #ifdef TANK_0_ACTIVE
+        tankStates.tank[0] = tankDetermineState(FSWITCH_1, FSWITCH_0, fswitchStates);
+    #endif
+    
+    #ifdef TANK_1_ACTIVE
+        tankStates.tank[1] = tankDetermineState(FSWITCH_3, FSWITCH_2, fswitchStates);
+    #endif
+    
+    #ifdef TANK_2_ACTIVE
+        tankStates.tank[2] = tankDetermineState(FSWITCH_5, FSWITCH_4, fswitchStates);
+    #endif
+    
+    #ifdef TANK_3_ACTIVE
+        tankStates.tank[3] = tankDetermineState(FSWITCH_7, FSWITCH_6, fswitchStates);
+    #endif
+    
+    return tankStates;
+}
 
 uint8 tankEventOccured(uint16 tankEvent) {
     return ((tankEvents & tankEvent) != 0);
@@ -219,6 +244,22 @@ uint16 fswitchCheckEvents(void) {
         #endif
     }
     return events;
+}
+
+
+/*
+   ******************* NEEDS DESCRIPTION  ************************
+*/
+uint8 tankDetermineState(uint8 emptySwitch, uint8 fullSwitch, uint16 fswitchStates) {
+    if ( !(fullSwitch & fswitchStates) && !(emptySwitch & fswitchStates) ) {
+        return TANK_STATE_EMPTY;
+    } else if ( !(fullSwitch & fswitchStates) && (emptySwitch & fswitchStates) ) {
+        return TANK_STATE_MID;
+    } else if ( (fullSwitch & fswitchStates) && (emptySwitch & fswitchStates) ) {
+        return TANK_STATE_FULL;
+    } else {
+        return TANK_STATE_UNDEF;
+    }
 }
 
 
