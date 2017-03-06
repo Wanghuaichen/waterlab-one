@@ -1,6 +1,21 @@
 /*
     Carl Lindquist
     Mar 3, 2017
+
+    Interface for using tanks and float switches in a state-machine for the
+    PSoC 5LP. Handles logic for interfacing with two float switches per tank, 
+    one at the top and another at the bottom. This code is specific to the PSoC
+    5LP. 
+
+    For this library to work correctly, float switches must be mounted in such a
+    fashion that they become closed (allowing current) when they float, and open
+    (stopping current) when they are not floating.
+
+    To avoid floating point errors, you can and should specify the number of tanks
+    you are using (up to a maxiumum of MAX_TANK_COUNT), where each tank has two 
+    float switches.
+
+    This library has event-driven and state-based methods.
 */
 
 #ifndef TANK_H
@@ -46,35 +61,35 @@ uint16 tankEvents;
 
 /*
 [desc]  Initialization function for the tank library. Starts the interrupt
-        for testing float switch events.
+        for testing float switch events which is specific to the PSoC 5LP.
 */
 void tankInit(void);
 
 
 /*
-[desc]  Returns the current state of the tanks in a uint16 with one-hot encoding.
-        States are represented in the TankBitmasks + TankStateBitmasks above.
+[desc]  Returns the current state of the tanks in a struct containing a single array.
+        The return type { tankStruct } is defined above. Use with the TANK_STATE enum
+        above when checking the state of a tank.
+            Example:
+                if tank is the array returned within the tankStruct,
+                TANK_1 is FULL if :: (tank[1] == TANK_STATE_FULL)
     
 [ret]   A tankStruct holding a single array with the state of each tank. Use with the
         TankStates enum above.
-            Example:
-            if tank is the array returned within the tankStruct,
-            TANK_0 is FULL if (tank[0] == TANK_STATE_FULL)
 */
 tankStruct tankGetStates(void);
 
 
 /*
 [desc]  Tests whether or not a TANK_EVENT has occurred. Avoids the ugly
-        'and-ing' of tankEvents and the event in question explicitly.
+        'and-ing' of tankEvents and the event in question explicitly. Note that
+        tankEvents must be cleared externally by setting tankEvents to TANK_EVENT_NONE.
 
-[tankEvent] A TankEventFlag to test for occurance
+[tankEventFlag] A TankEventFlag to test for occurance
     
 [ret]   1 if the event occurred, 0 otherwise.
 */
-uint8 tankEventOccured(uint16 tankEvent);
-
-
+uint8 tankEventOccured(uint16 tankEventFlag);
 
 
 #endif /* TANK_H */

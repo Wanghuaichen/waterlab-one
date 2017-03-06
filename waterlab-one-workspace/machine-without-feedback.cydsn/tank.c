@@ -1,6 +1,21 @@
 /*
     Carl Lindquist
     Mar 3, 2017
+
+    Interface for using tanks and float switches in a state-machine for the
+    PSoC 5LP. Handles logic for interfacing with two float switches per tank, 
+    one at the top and another at the bottom. This code is specific to the PSoC
+    5LP. 
+
+    For this library to work correctly, float switches must be mounted in such a
+    fashion that they become closed (allowing current) when they float, and open
+    (stopping current) when they are not floating.
+
+    To avoid floating point errors, you can and should specify the number of tanks
+    you are using (up to a maxiumum of MAX_TANK_COUNT), where each tank has two 
+    float switches.
+
+    This library has event-driven and state-based methods.
 */
     
 #include "tank.h"
@@ -45,13 +60,15 @@ typedef enum {
 
 
 //––––––  Private Declarations  ––––––//
-CY_ISR_PROTO(FSwitch_ISR);
-uint16 fswitchCheckEvents(void);
-uint8 fsEventOccured(uint16 fsEvent, uint16 fswitchEvents);
+
 uint16 fswitchGetStates(void);
+uint16 fswitchCheckEvents(void);
+uint8 fswtichEventOccurred(uint16 fsEvent, uint16 fswitchEvents);
+
 uint8 tankDetermineState(uint8 emptySwitch, uint8 fullSwitch, uint16 fswitchStates);
 uint16 tankCheckEvents(uint16 fswitchEvents);
 
+CY_ISR_PROTO(FSwitch_ISR);
 
 
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
@@ -85,8 +102,9 @@ tankStruct tankGetStates(void) {
     return tankStates;
 }
 
-uint8 tankEventOccured(uint16 tankEvent) {
-    return ((tankEvents & tankEvent) != 0);
+
+uint8 tankEventOccured(uint16 tankEventFlag) {
+    return ((tankEvents & tankEventFlag) != 0);
 }
 
 
@@ -144,9 +162,12 @@ uint16 fswitchGetStates(void) {
 
 
 /*
-[desc]  Returns a uin16 describing which events have occurred since the last time
-        fswitchEvents was cleared. This function has debouncing built in, though
-        it is not strictly necessary in the case of float switches.
+[desc]  Returns a uint16 describing which events have occurred since the last time
+        this function was called. This function has debouncing built in, though
+        it is not strictly necessary in the case of float switches. This means that
+        the function keeps track of states over multiple calls. The 
+        FSWITCH_DEBOUNCE_PERIOD is the number of calls for which a state must be the 
+        same before an event will be recognized.
 
 [ret]   A uint16 representing all the events which have occurred since this function
         was last called. Use with the FloatSwitchEventFlags bitmasks in this file header.
@@ -176,8 +197,9 @@ uint16 fswitchCheckEvents(void) {
     
     if (eventOccurred) {
         
-        /*  FSwitch event checker is split first by tank -> TANK_0 has FSWITCH_0 and FSWITCH_1.
-            Then split by going from ON to OFF and vice versa */
+        /*  FSwitch event checker is split first by tank:
+            TANK_0 has FSWITCH_0 (FULL) and FSWITCH_1 (EMPTY)
+            Then split by going from OFF to ON and vice versa */
         #ifdef TANK_0_ACTIVE
             /* Going from OFF to ON */
             if ( !(states[OLD] & FSWITCH_0) && (states[NEW] & FSWITCH_0) ) {
@@ -248,7 +270,27 @@ uint16 fswitchCheckEvents(void) {
 
 
 /*
-   ******************* NEEDS DESCRIPTION  ************************
+[desc]  Tests whether or not an event has occurred. Avoids the ugly
+        'and-ing' of fswitchEvents and the event in question explicitly.
+
+[fsEvent] A FloatSwitchEventFlag to test the truth of.
+    
+[ret]   1 if the event occurred, 0 otherwise.
+*/
+uint8 fswtichEventOccurred(uint16 fsEvent, uint16 fswitchEvents) {
+    return ((fswitchEvents & fsEvent) != 0);
+}
+
+
+/*
+[desc]  Helper function for tankGetStates(). Analyzes a single tank's switches
+        and returns its state.
+
+[emptySwitch] The switch associated with a tank becoming empty. A FloatSwitchBitmask.
+[fullSwitch] The switch associated with a tank becoming full. A FloatSwitchBitmask.
+[fswitchStates] A uint16 representing the state of ALL switches. Use fswitchGetStates().
+
+[ret]   A TankState (enum in header) representing the state of a tank.
 */
 uint8 tankDetermineState(uint8 emptySwitch, uint8 fullSwitch, uint16 fswitchStates) {
     if ( !(fullSwitch & fswitchStates) && !(emptySwitch & fswitchStates) ) {
@@ -264,43 +306,54 @@ uint8 tankDetermineState(uint8 emptySwitch, uint8 fullSwitch, uint16 fswitchStat
 
 
 /*
-   ******************* NEEDS DESCRIPTION  ************************
+[desc]  Returns a uint16 describing which events have occurred since the last time
+        tankEvents was cleared. This function should be called with fswitchCheckEvents()
+        as its argument inside an ISR. To interface with a state machine, this function's
+        return should be stored into a public variable. Note that tankEvents must be cleared
+        externally, they will never clear themselves.
+
+[fswitchEvents] The float switch events used to determine check events. This must adhere
+                to a specific enum format for bitmasking. Use fswitchCheckEvents().
+
+[ret]   A uint16 representing all the tank events which have occurred since
+        fswitchCheckEvents() was last called. Use with the TankEventFlags bitmasks
+        in this file's header.
 */
 uint16 tankCheckEvents(uint16 fswitchEvents) {
     uint16 events = TANK_EVENT_NONE;
     
     #ifdef TANK_0_ACTIVE
-        if ( fsEventOccured(FSWITCH_EVENT_0_ON, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_0_ON, fswitchEvents)) {
             events |= TANK_EVENT_0_FULL;
         }
-        if ( fsEventOccured(FSWITCH_EVENT_1_OFF, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_1_OFF, fswitchEvents)) {
             events |= TANK_EVENT_0_EMPTY;
         }
     #endif
     
     #ifdef TANK_1_ACTIVE
-        if ( fsEventOccured(FSWITCH_EVENT_2_ON, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_2_ON, fswitchEvents)) {
             events |= TANK_EVENT_1_FULL;
         }
-        if ( fsEventOccured(FSWITCH_EVENT_3_OFF, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_3_OFF, fswitchEvents)) {
             events |= TANK_EVENT_1_EMPTY;
         }
     #endif
     
     #ifdef TANK_2_ACTIVE
-        if ( fsEventOccured(FSWITCH_EVENT_4_ON, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_4_ON, fswitchEvents)) {
             events |= TANK_EVENT_2_FULL;
         }
-        if ( fsEventOccured(FSWITCH_EVENT_5_OFF, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_5_OFF, fswitchEvents)) {
             events |= TANK_EVENT_2_EMPTY;
         }
     #endif
     
     #ifdef TANK_3_ACTIVE
-        if ( fsEventOccured(FSWITCH_EVENT_6_ON, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_6_ON, fswitchEvents)) {
             events |= TANK_EVENT_3_FULL;
         }
-        if ( fsEventOccured(FSWITCH_EVENT_7_OFF, fswitchEvents)) {
+        if (fswtichEventOccurred(FSWITCH_EVENT_7_OFF, fswitchEvents)) {
             events |= TANK_EVENT_3_EMPTY;
         }
     #endif
@@ -310,89 +363,12 @@ uint16 tankCheckEvents(uint16 fswitchEvents) {
 
 
 /*
-[desc]  Tests whether or not an event has occurred. Avoids the ugly
-        'and-ing' of fswitchEvents and the event in question explicitly.
-
-[FS_EVENT] A FloatSwitchEventFlag to test the truth of.
-    
-[ret]   1 if the event occurred, 0 otherwise.
-*/
-uint8 fsEventOccured(uint16 fsEvent, uint16 fswitchEvents) {
-    return ((fswitchEvents & fsEvent) != 0);
-}
-
-
-/*
-[desc]  ISR which adds events to the tankEvents buffer variable.
+[desc]  ISR which buffers events into the tankEvents variable. Note that tankEvents
+        must be cleared external to this library by setting tankEvents = TANK_EVENT_NONE.
 */
 CY_ISR(FSwitch_ISR) {
     tankEvents |= tankCheckEvents(fswitchCheckEvents());
 }
 
-//––––––––––––––––––––––––––––––  OUTDATED  ––––––––––––––––––––––––––––––//
-#ifdef OUTDATED
-
-    /* For FSWITCH_ON events */
-    if ( !(prevStates & FSWITCH_0) && (curStates & FSWITCH_0) ) {
-        events |= FSWITCH_EVENT_0_ON;
-    }
-    if ( !(prevStates & FSWITCH_1) && (curStates & FSWITCH_1) ) {
-        events |= FSWITCH_EVENT_1_ON;
-    }
-    if ( !(prevStates & FSWITCH_2) && (curStates & FSWITCH_2) ) {
-        events |= FSWITCH_EVENT_2_ON;
-    }
-    if ( !(prevStates & FSWITCH_3) && (curStates & FSWITCH_3) ) {
-        events |= FSWITCH_EVENT_3_ON;
-    }
-    
-    /* For FSWITCH_OFF events */
-    if ( (prevStates & FSWITCH_0) && !(curStates & FSWITCH_0) ) {
-        events |= FSWITCH_EVENT_0_OFF;
-    }
-    if ( (prevStates & FSWITCH_1) && !(curStates & FSWITCH_1) ) {
-        events |= FSWITCH_EVENT_1_OFF;
-    }
-    if ( (prevStates & FSWITCH_2) && !(curStates & FSWITCH_2) ) {
-        events |= FSWITCH_EVENT_2_OFF;
-    }
-    if ( (prevStates & FSWITCH_3) && !(curStates & FSWITCH_3) ) {
-        events |= FSWITCH_EVENT_3_OFF;
-    } 
-
-
-
-/* An event has occurred */
-if (states[1] == states[2] && states[2] == states[3] && states[3] == states[4] && states[0] != states[4]) {
-    /* For FSWITCH_ON events */
-    if ( !(states[OLD] & FSWITCH_0) && (states[NEW] & FSWITCH_0) ) {
-        events |= FSWITCH_EVENT_0_ON;
-    }
-    if ( !(states[OLD] & FSWITCH_1) && (states[NEW] & FSWITCH_1) ) {
-        events |= FSWITCH_EVENT_1_ON;
-    }
-    if ( !(states[OLD] & FSWITCH_2) && (states[NEW] & FSWITCH_2) ) {
-        events |= FSWITCH_EVENT_2_ON;
-    }
-    if ( !(states[OLD] & FSWITCH_3) && (states[NEW] & FSWITCH_3) ) {
-        events |= FSWITCH_EVENT_3_ON;
-    }
-    
-    /* For FSWITCH_OFF events */
-    if ( (states[OLD] & FSWITCH_0) && !(states[NEW] & FSWITCH_0) ) {
-        events |= FSWITCH_EVENT_0_OFF;
-    }
-    if ( (states[OLD] & FSWITCH_1) && !(states[NEW] & FSWITCH_1) ) {
-        events |= FSWITCH_EVENT_1_OFF;
-    }
-    if ( (states[OLD] & FSWITCH_2) && !(states[NEW] & FSWITCH_2) ) {
-        events |= FSWITCH_EVENT_2_OFF;
-    }
-    if ( (states[OLD] & FSWITCH_3) && !(states[NEW] & FSWITCH_3) ) {
-        events |= FSWITCH_EVENT_3_OFF;
-    } 
-}
-        
-#endif //OUTDATED
 
 /* EOF */
