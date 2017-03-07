@@ -16,9 +16,10 @@
 
 
 enum MACHINE_STATES {
+    STATE_IDLE,
     STATE_RUN_P0,
     STATE_RUN_P1,
-    STATE_IDLE,
+    STATE_RUN_P2,
 } machineState;
 
 
@@ -38,8 +39,7 @@ int main(void) {
         switch(machineState) {
             
             case STATE_IDLE:
-                Pump0_Out_Pin_Write(FALSE);
-                Pump1_Out_Pin_Write(FALSE);
+
             
                 LCD_ClearDisplay();
                 LCD_PrintString("IDLE");
@@ -53,44 +53,62 @@ int main(void) {
                 tankStates = tankGetStates();
                 if ( (tankStates.tank[0] == TANK_STATE_MID || tankStates.tank[0] == TANK_STATE_FULL) 
                             && tankStates.tank[1] != TANK_STATE_FULL) {
+                    Pump0_Out_Pin_Write(TRUE);
                     machineState = STATE_RUN_P0;
                 } else if ( (tankStates.tank[1] == TANK_STATE_MID || tankStates.tank[1] == TANK_STATE_FULL)
-                            && tankStates.tank[0] != TANK_STATE_FULL) {
+                            && tankStates.tank[2] != TANK_STATE_FULL) {
+                    Pump1_Out_Pin_Write(TRUE);
                     machineState = STATE_RUN_P1;
+                } else if ( (tankStates.tank[2] == TANK_STATE_MID || tankStates.tank[2] == TANK_STATE_FULL)
+                            && tankStates.tank[3] != TANK_STATE_FULL) {
+                    Pump2_Out_Pin_Write(TRUE);
+                    machineState = STATE_RUN_P2;
                 }
                 break;
             
             case STATE_RUN_P0:
-                Pump0_Out_Pin_Write(TRUE);
-                Pump1_Out_Pin_Write(FALSE);
-            
+
                 LCD_ClearDisplay();
                 LCD_PrintString("RUN PUMP 0");
                 LCD_Position(1, 0);
                 LCD_PrintHexUint16(tankEvents);
                 
                 if (tankEventOccured(TANK_EVENT_0_EMPTY) || tankEventOccured(TANK_EVENT_1_FULL)) {
+                    Pump0_Out_Pin_Write(FALSE);
                     machineState = STATE_IDLE;
                     tankEvents = TANK_EVENT_NONE;
                 }
                 break;
 
             case STATE_RUN_P1:
-                Pump0_Out_Pin_Write(FALSE);
-                Pump1_Out_Pin_Write(TRUE);
-                    
+
                 LCD_ClearDisplay();
                 LCD_PrintString("RUN PUMP 1");
                 LCD_Position(1, 0);
                 LCD_PrintHexUint16(tankEvents);
                 
                 if (tankEventOccured(TANK_EVENT_1_EMPTY) || tankEventOccured(TANK_EVENT_0_FULL)) {
+                    Pump1_Out_Pin_Write(FALSE);
+                    machineState = STATE_IDLE;
+                    tankEvents = TANK_EVENT_NONE;
+                }
+                break;
+                
+            case STATE_RUN_P2:
+    
+                LCD_ClearDisplay();
+                LCD_PrintString("RUN PUMP 2");
+                LCD_Position(1, 0);
+                LCD_PrintHexUint16(tankEvents);
+                
+                if (tankEventOccured(TANK_EVENT_2_EMPTY) || tankEventOccured(TANK_EVENT_3_FULL)) {
+                    Pump2_Out_Pin_Write(FALSE);
                     machineState = STATE_IDLE;
                     tankEvents = TANK_EVENT_NONE;
                 }
                 break;
         }
-        CyDelay(100); //For LCD printing purposes
+        CyDelay(25); //For LCD printing purposes
     }
     
     
