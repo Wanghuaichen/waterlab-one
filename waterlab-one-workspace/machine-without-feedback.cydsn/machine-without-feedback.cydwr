@@ -256,6 +256,7 @@
       <Data key="26ee2a48-551d-4218-b901-94940741f7b8" value="Pump1_Out_Pin" />
       <Data key="36f423d3-707d-4344-b933-fbc52afc0ad0" value="Switch4_In_Pin" />
       <Data key="526a1cfb-1c60-4f0e-a751-fc0cf60218f7" value="Switch5_In_Pin" />
+      <Data key="722e7d11-7a46-444c-8040-50ba7a355a69" value="Pump2_Out_Pin" />
       <Data key="22296e31-2589-46d8-ad3a-f863d058ef3c" value="Switch3_In_Pin" />
       <Data key="26789b23-b1f1-4086-845b-19346b0058a6" value="Switch2_In_Pin" />
       <Data key="64675b56-6192-4141-ab7f-52e54112d9d8" value="Pump0_Out_Pin" />
@@ -3377,6 +3378,11 @@
     <Group key="526a1cfb-1c60-4f0e-a751-fc0cf60218f7">
       <Group key="0">
         <Data key="Port Format" value="5,5" />
+      </Group>
+    </Group>
+    <Group key="722e7d11-7a46-444c-8040-50ba7a355a69">
+      <Group key="0">
+        <Data key="Port Format" value="12,2" />
       </Group>
     </Group>
     <Group key="22296e31-2589-46d8-ad3a-f863d058ef3c">
