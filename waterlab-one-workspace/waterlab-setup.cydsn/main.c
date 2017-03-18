@@ -2,6 +2,7 @@
 #include "project.h"
 
 #include "waterlabSetupShell.h"
+#include "usbProtocol.h"
 #include "ezoProtocol.h"
 
 int main(void)

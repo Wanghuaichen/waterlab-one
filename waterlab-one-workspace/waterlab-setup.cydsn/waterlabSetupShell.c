@@ -3,7 +3,7 @@
     Mar 17, 2017
     
     A shell for communication between the PSOC 5LP
-    via USBUART for setting up water lab components.
+    via USBUART for setting up water lab components. 
 */
     
 #include "waterlabSetupShell.h"
@@ -14,11 +14,13 @@
 #include <string.h>
 
 #define SHELL_BUFFER_SIZE 64
-#define COMMAND_LENGTH 16
-#define ARGUMENT_LENGTH 16
+#define COMMAND_LENGTH 32
+#define ARGUMENT_LENGTH 32
+#define EXIT_SHELL 0
 
-uint8 bufferCount = 0;
+
 char buffer[SHELL_BUFFER_SIZE];
+
 
 //–––––– Private Declarations ––––––//
 
@@ -26,12 +28,12 @@ uint8 shellProcessByte(uint8 byte);
 uint8 runCommand(void);
 uint8 determineCommand(char command[]);
 
-//––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
 
+//––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
 
 void shellRun(void) {
     usbSendString("<--> ");
-    while (shellProcessByte(usbGetByte()));    
+    while (shellProcessByte(usbGetByte()) != EXIT_SHELL);    
 }
 
 
@@ -39,21 +41,22 @@ void shellRun(void) {
 
 /*
 [desc]  Input bytes are buffered until '\r' received or buffer is full. Upon execute,
-		shell checks buffer for a valid command.
+		runCommand() checks buffer for a valid command.
         
 [byte]	Bytes to be buffered, '\r' executes buffer.
     
 [ret]   Returns EXIT_SHELL when the shell should stop running, 1 otherwise
 */
 uint8 shellProcessByte(uint8 byte) {
-    uint8 ret = 1;
+	static uint8 bufferCount = 0;
+    uint8 exitBool = 1;
     if(byte) {
-        if((char)byte == '\r' || bufferCount == SHELL_BUFFER_SIZE) {
+        if((char)byte == '\r' || bufferCount == SHELL_BUFFER_SIZE - 1) {
             buffer[bufferCount] = '\0';
-            ret = runCommand();
-            usbSendString("\r<--> ");
+            exitBool = runCommand();
             buffer[0] = '\0';
             bufferCount = 0;
+            usbSendString("\r<--> ");
         } else if (byte == 0x8) { // User pressed the backspace key
             buffer[--bufferCount] = '\0';
             usbSendString("\r<--> ");
@@ -63,10 +66,11 @@ uint8 shellProcessByte(uint8 byte) {
             usbSendByte(byte);
         }
     }
-    return ret;
+    return exitBool;
 }
 
 
+//–––––– Command Enum ––––––//
 enum commands {
     HELP = 1,
     HELLO,
@@ -75,7 +79,14 @@ enum commands {
 };
 
 
-//executes a command based on the return of determineCommand()
+/*
+[desc]  This function looks at the global shell buffer, and executes a command
+		based on its contents. This function should be modified to serve whatever
+		purpose the user needs. Create new commands in the enum above, and add their
+		syntax to the determineCommand() function.
+    
+[ret]   Returns EXIT_SHELL when the shell should stop running, 1 otherwise
+*/
 uint8 runCommand(void) {
     char command[COMMAND_LENGTH] = {};
     char argument[ARGUMENT_LENGTH] = {};
@@ -105,12 +116,12 @@ uint8 runCommand(void) {
                 usbSendString("\r  Sent Command: ");
                 usbSendString(argument);
                 
-                i2cSendString(100, argument);
-                CyDelay(1200);
-                response = i2cReadString(100);
+                i2cSendString(EC_SENSOR_ADDRESS, argument);
+                CyDelay(1200); //EZO requires one second for a reading
+                response = i2cReadString(EC_SENSOR_ADDRESS);
                 
                 usbSendString("\r  received: ");
-                usbSendString(response.r);
+                usbSendString(response.d);
                 break;
                 
             default:
@@ -122,7 +133,15 @@ uint8 runCommand(void) {
 }
 
 
-//Returns which command should be executed based on the string input
+/*
+[desc]  Returns a value from the command enum based on the string passed in. 
+		This function can be modified to support an arbitrary number of commands.
+
+[command] A string to analyze for equivalence to a known command.
+    
+[ret]   Returns a value from the command enum if the input string matches a specified
+		syntax, 0 otherwise.
+*/
 uint8 determineCommand(char command[]) {
     if(!strcmp(command, "hello")) {
         return HELLO;    

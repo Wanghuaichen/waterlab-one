@@ -1,6 +1,13 @@
 /*
     Carl Lindquist
     Mar 17, 2017
+
+    Library for interfacing with the Atlas-Scientific EZO class circuits
+    over I2C. This library will poll the sensors using a hardware timer 
+    and store data points for immediate public access to recent readings.
+
+    The I2C prefixed functions in this library are generic, and can be
+    adapted for any I2C master functionality.
 */
     
 #include "ezoProtocol.h"
@@ -46,7 +53,7 @@ arrStruct i2cReadString(uint8 slaveAddress) {
     
     /* Convert EZO status byte to number */
     temp = tempArray[0];
-    sprintf((char*)response.r, "%03d%s", tempArray[0], &tempArray[1]);
+    sprintf((char*)response.d, "%03d%s", tempArray[0], &tempArray[1]);
     return response;
 }
 
@@ -56,4 +63,4 @@ arrStruct i2cReadString(uint8 slaveAddress) {
     
 //––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
 
-/* [] END OF FILE */
+/* EOF */

@@ -17,6 +17,7 @@
 void usbStart(void);
 uint8 usbGetByte(void);
 
+
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
 
 void usbStart(void) {
