@@ -13,7 +13,6 @@
 #include "ezoProtocol.h"
 #include <string.h>
 #include <stdio.h>
-#include "usbProtocol.h"
 
 
 //––––––  Private Variables  ––––––//
@@ -88,11 +87,9 @@ double ezoGetData(uint8 slaveAddress) {
 void i2cSendString(uint8 slaveAddress, char string[]) {
     /* Initiate transfer */
     uint8 temp = 0;
-    LED4_Pin_Write(1);
     do {
         I2CM_MasterWriteBuf(slaveAddress, (uint8*)string, strlen(string), I2CM_MODE_COMPLETE_XFER);
     } while(temp != I2CM_MSTR_NO_ERROR);
-    LED4_Pin_Write(0);
     
     while(I2CM_MasterStatus() & I2CM_MSTAT_XFER_INP); /* Wait for transfer to finish */
 }
@@ -112,11 +109,9 @@ arrStruct i2cReadString(uint8 slaveAddress) {
 //    char tempArray[MAX_RESPONSE_LENGTH] = {};
     arrStruct response = {};
     
-    LED3_Pin_Write(1);
     do {
 		temp = I2CM_MasterReadBuf(slaveAddress, (uint8*)response.d, MAX_RESPONSE_LENGTH, I2CM_MODE_COMPLETE_XFER);
     } while (temp != I2CM_MSTR_NO_ERROR);
-    LED3_Pin_Write(0);
     
     while(I2CM_MasterStatus() & I2CM_MSTAT_XFER_INP); /* Wait for transfer to finish */
     
@@ -145,8 +140,8 @@ CY_ISR(I2C_DATA_ISR) {
             i2cSendString(EC_SENSOR_ADDRESS, "R");
             i2cSendString(DO_SENSOR_ADDRESS, "R"); 
         } else {
-            LCD_ClearDisplay();
-            char outstring[30] = {};
+//            LCD_ClearDisplay();
+//            char outstring[30] = {};
             /* Ask the sensors for the last readings they took */
             arrStruct ecResponse = i2cReadString(EC_SENSOR_ADDRESS);
             arrStruct doResponse = i2cReadString(DO_SENSOR_ADDRESS);
@@ -154,15 +149,15 @@ CY_ISR(I2C_DATA_ISR) {
             /* Successful EC Read */
             if (ecResponse.d[0] == 'S' && 48 <= ecResponse.d[1] && ecResponse.d[1] <= 57) {
                 sscanf(&ecResponse.d[1], "%lf", &recentECData);
-                sprintf(outstring, "%lf", recentECData);
-                LCD_PrintString(outstring);
+//                sprintf(outstring, "%lf", recentECData);
+//                LCD_PrintString(outstring);
             }
             /* Successful DO Read */
             if (doResponse.d[0] == 'S' && 48 <= doResponse.d[1] && doResponse.d[1] <= 57) {
                 sscanf(&doResponse.d[1], "%lf", &recentDOData);
-                LCD_Position(1,0);
-                sprintf(outstring, "%lf", recentDOData);
-                LCD_PrintString(outstring);
+//                LCD_Position(1,0);
+//                sprintf(outstring, "%lf", recentDOData);
+//                LCD_PrintString(outstring);
             }
         }
         dataRequested = ~dataRequested;

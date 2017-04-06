@@ -109,9 +109,7 @@ uint8 runCommand(void) {
                 
                 usbSendString("\r  Valid commands:");
                 usbSendString("\r    send [command]");
-                usbSendString("\r      Sends 'command' over I2C to the 'Active Device'. The sensor");
-                usbSendString("\r      will respond after a 1 second delay. The first character received");
-                usbSendString("\r      is a response code:");
+                usbSendString("\r      First character response codes:");
                 usbSendString("\r        S - Success");
                 usbSendString("\r        E - Error, invalid EZO command");
                 usbSendString("\r        N - No data requested");
