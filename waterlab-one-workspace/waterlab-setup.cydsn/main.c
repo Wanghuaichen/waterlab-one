@@ -11,10 +11,9 @@ int main(void)
     usbStart();
     LCD_Start();
     ezoStart();
-    
 
     usbSendString("\r-- Welcome to the Waterlab One setup script --\r");
-    usbSendString("Type 'help' to begin.\r");
+    usbSendString("Type 'help' to begin.");
 
     shellRun();
     

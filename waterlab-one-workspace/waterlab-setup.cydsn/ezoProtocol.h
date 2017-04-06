@@ -15,6 +15,7 @@
     
 #define MAX_RESPONSE_LENGTH 128
 #define EC_SENSOR_ADDRESS 100
+#define DO_SENSOR_ADDRESS 97
     
 
 typedef struct arrStruct { char d[MAX_RESPONSE_LENGTH]; } arrStruct;
@@ -30,23 +31,45 @@ void ezoStart(void);
 
 
 /*
-[desc]  Sends a string to the slave specified by slaveAddress in I2C protocol. Assumes
-		this device is set up as an I2C Master with a hardware block names I2CM.
+[desc]  Turns auto polling for data from the two EZO sensors ON or OFF
+        according to the value passed in. Passing in a 0 disables 
+        autopolling, anything else will enable it.
 
-[slaveAddress] Address of an I2C device between 0 and 127
-[string] A string to send over I2C
+[value] Value to set autopolling to.
 */
-void i2cSendString(uint8 slaveAddress, char string[]);
+void ezoSetAutoPoll(uint8 value);
+
 
 /*
-[desc]  Reads a buffer from the slave specified by slaveAddress in I2C protocol. Assumes
-		this device is set up as an I2C Master with a hardware block names I2CM.
+[desc]  Use this function to send single requests to a slave device. This
+        method will wait until any autopolling is finished, then send 'string'
+        to the 'slaveAddress'. It will then wait for 'delay' amount of time
+        to read data from the slave.
 
-[slaveAddress] Address of an I2C device between 0 and 127
+[slaveAddress] Slave address to send and request from.
+[string] A string to send to the slave.
+[delay] Time is uS to wait between sending and requesting.
 
-[ret]	An arrStruct holding the buffer of data read from the slave.
+[ret]   An arrStruct containing the slave's response.
 */
-arrStruct i2cReadString(uint8 slaveAddress);
+arrStruct ezoSendAndPoll(uint8 slaveAddress, char string[], uint16 delay);
+
+/*
+[desc]  Returns the most recently recorded data from a sensor addressed by
+        its I2C slave address. Note that this function does not directly
+        communicate with a sensor, as data is collected automatically every
+        2 seconds from each sensor. This method is non-blocking.
+
+[slaveAddress] The I2C slave address of to ask for data.
+
+[ret] The most recently recorded data from the slave sensor.
+*/
+double ezoGetData(uint8 slaveAddress);
+
+
+
+
+
 
 
 

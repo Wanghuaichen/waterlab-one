@@ -14,6 +14,7 @@
 #include <string.h>
 
 #define SHELL_BUFFER_SIZE 64
+#define SHELL_PROMPT_STRING ("\r<--> ")
 #define COMMAND_LENGTH 32
 #define ARGUMENT_LENGTH 32
 #define EXIT_SHELL 0
@@ -32,7 +33,7 @@ uint8 determineCommand(char command[]);
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
 
 void shellRun(void) {
-    usbSendString("<--> ");
+    usbSendString(SHELL_PROMPT_STRING);
     while (shellProcessByte(usbGetByte()) != EXIT_SHELL);    
 }
 
@@ -56,10 +57,10 @@ uint8 shellProcessByte(uint8 byte) {
             exitBool = runCommand();
             buffer[0] = '\0';
             bufferCount = 0;
-            usbSendString("\r<--> ");
+            usbSendString(SHELL_PROMPT_STRING);
         } else if (byte == 0x8) { // User pressed the backspace key
             buffer[--bufferCount] = '\0';
-            usbSendString("\r<--> ");
+            usbSendString(SHELL_PROMPT_STRING);
             usbSendString(buffer);
         } else {
             buffer[bufferCount++] = byte;
@@ -73,9 +74,10 @@ uint8 shellProcessByte(uint8 byte) {
 //–––––– Command Enum ––––––//
 enum commands {
     HELP = 1,
-    HELLO,
     EXIT,
     SEND,
+    SET_AUTO_POLL,
+    CHANGE_ACTIVE_DEVICE,
 };
 
 
@@ -91,19 +93,40 @@ uint8 runCommand(void) {
     char command[COMMAND_LENGTH] = {};
     char argument[ARGUMENT_LENGTH] = {};
     arrStruct response = {};
+    static uint8 activeDevice = EC_SENSOR_ADDRESS;
     uint8 ret = 1;
     
     if (sscanf(buffer, "%s", command)) {
         switch (determineCommand(command)) {
                 
             case HELP:
-                usbSendString("\r  Valid commands:");
-                usbSendString("\r    send [command to send over I2C]");
-                usbSendString("\r    help");
-                break;
+                usbSendString("\r  Active Device: ");
+                if (activeDevice == EC_SENSOR_ADDRESS) {
+                    usbSendString("Electrical Conductivity Sensor");
+                } else {
+                    usbSendString("Dissolved Oxygen Sensor");
+                }
                 
-            case HELLO:
-                usbSendString("\r  Hey there :)");
+                usbSendString("\r  Valid commands:");
+                usbSendString("\r    send [command]");
+                usbSendString("\r      Sends 'command' over I2C to the 'Active Device'. The sensor");
+                usbSendString("\r      will respond after a 1 second delay. The first character received");
+                usbSendString("\r      is a response code:");
+                usbSendString("\r        S - Success");
+                usbSendString("\r        E - Error, invalid EZO command");
+                usbSendString("\r        N - No data requested");
+                usbSendString("\r        P - Pending data, request delay not long enough");
+                
+                usbSendString("\r    set_auto_poll ['on' or 'off'] ");
+                usbSendString("\r      Enables/disables autopolling for data.");
+                
+                usbSendString("\r    change_active_device");
+                usbSendString("\r      Toggles the 'Active Device'.");
+                
+                usbSendString("\r    exit");
+                usbSendString("\r      Exit this shell.");
+                
+                usbSendString("\r    help");
                 break;
                 
             case EXIT:
@@ -113,19 +136,42 @@ uint8 runCommand(void) {
                 
             case SEND:
                 sscanf(buffer, "%*s%s", argument);
-                usbSendString("\r  Sent Command: ");
+                if (activeDevice == EC_SENSOR_ADDRESS) {
+                    usbSendString("\r  Sent Command to EC Sensor: ");
+                } else if (activeDevice == DO_SENSOR_ADDRESS) {
+                    usbSendString("\r  Sent Command to DO Sensor: ");    
+                }
                 usbSendString(argument);
                 
-                i2cSendString(EC_SENSOR_ADDRESS, argument);
-                CyDelay(1200); //EZO requires one second for a reading
-                response = i2cReadString(EC_SENSOR_ADDRESS);
+                response = ezoSendAndPoll(activeDevice, argument, 1200);
                 
-                usbSendString("\r  received: ");
+                usbSendString("\r  Received: ");
                 usbSendString(response.d);
                 break;
                 
+            case SET_AUTO_POLL:
+                sscanf(buffer, "%*s%s", argument);
+                if (!strcmp(argument, "off")) {
+                    ezoSetAutoPoll(0);
+                    usbSendString("\r  Turned auto polling OFF");
+                } else {
+                    ezoSetAutoPoll(1);
+                    usbSendString("\r  Turned auto polling ON");
+                }
+                break;
+                
+            case CHANGE_ACTIVE_DEVICE:
+                if (activeDevice == EC_SENSOR_ADDRESS) {
+                    activeDevice = DO_SENSOR_ADDRESS;
+                    usbSendString("\r  Made waterlabDO the active device");
+                } else {
+                    activeDevice = EC_SENSOR_ADDRESS;
+                    usbSendString("\r  Made waterlabEC the active device");
+                }
+                break;
+                
             default:
-                usbSendString("   { Invalid Command }");
+                usbSendString("   { Invalid Shell Command }");
                 break;
         } 
     }
@@ -142,15 +188,17 @@ uint8 runCommand(void) {
 [ret]   Returns a value from the command enum if the input string matches a specified
 		syntax, 0 otherwise.
 */
-uint8 determineCommand(char command[]) {
-    if(!strcmp(command, "hello")) {
-        return HELLO;    
-    } else if(!strcmp(command, "help")) {
+uint8 determineCommand(char command[]) {   
+    if(!strcmp(command, "help")) {
         return HELP;
     } else if(!strcmp(command, "exit")) {
         return EXIT;
     } else if(!strcmp(command, "send")) {
         return SEND;
+    } else if(!strcmp(command, "set_auto_poll")) {
+        return SET_AUTO_POLL;
+    } else if(!strcmp(command, "change_active_device")) {
+        return CHANGE_ACTIVE_DEVICE;
     } else {
         return 0;
     }

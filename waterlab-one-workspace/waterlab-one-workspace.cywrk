@@ -25,7 +25,6 @@
 <v>.\drive-relay.cydsn\drive-relay.cyprj</v>
 <v>.\bucket-swap.cydsn\bucket-swap.cyprj</v>
 <v>.\machine-without-feedback.cydsn\machine-without-feedback.cyprj</v>
-<v>.\uart-comm.cydsn\uart-comm.cyprj</v>
 <v>.\waterlab-setup.cydsn\waterlab-setup.cyprj</v>
 </projects>
 <workspace_id v="c0356fe3-3cfa-445b-98bf-05e2edbdf9ee" />
