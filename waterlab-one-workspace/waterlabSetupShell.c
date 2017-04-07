@@ -141,7 +141,7 @@ uint8 runCommand(void) {
                 }
                 usbSendString(argument);
                 
-                response = ezoSendAndPoll(activeDevice, argument, 1200);
+                response = ezoSendAndPoll(activeDevice, argument, 2200);
                 
                 usbSendString("\r  Received: ");
                 usbSendString(response.d);
