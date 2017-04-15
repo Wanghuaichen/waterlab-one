@@ -30,7 +30,7 @@ CY_ISR_PROTO(I2C_DATA_ISR);
 
 
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
-    
+
 void ezoStart(void) {
     I2CM_Start();
     autoPollEn = 1;

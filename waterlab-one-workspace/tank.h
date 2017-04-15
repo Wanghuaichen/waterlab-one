@@ -26,8 +26,8 @@
 
 #define TANK_0_ACTIVE
 #define TANK_1_ACTIVE
-//#define TANK_2_ACTIVE
-//#define TANK_3_ACTIVE
+#define TANK_2_ACTIVE
+#define TANK_3_ACTIVE
   
 #define MAX_TANK_COUNT 4
 #define FSWITCH_DEBOUNCE_PERIOD 4 /* Milliseconds */
@@ -90,6 +90,18 @@ tankStruct tankGetStates(void);
 [ret]   1 if the event occurred, 0 otherwise.
 */
 uint8 tankEventOccured(uint16 tankEventFlag);
+
+
+/*
+[desc]  Clears a specific event from the record of tank events. This 
+        method also returns the value of the event before it was cleared.
+
+[tankEventFlag] A TankEventFlag to check and clear.
+    
+[ret]   1 if the event occurred, 0 otherwise.
+*/
+uint8 tankClearEvent(uint16 tankEventFlag);
+
 
 
 #endif /* TANK_H */

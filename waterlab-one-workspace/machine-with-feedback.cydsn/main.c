@@ -28,7 +28,54 @@ enum MACHINE_STATES {
 } machineState;
 
 uint8 ecThresholdFlag;
+uint8 filterStageActive, roStageActive, uvStageActive;
 
+int main(void) {
+    CyGlobalIntEnable; /* Enable global interrupts. */
+ 
+    tankInit();
+    ezoStart();
+    
+    filterStageActive = FALSE;
+    roStageActive = FALSE;
+    uvStageActive = FALSE;
+    
+    tankStruct tankStates;
+    char outString[30] = {};
+    while(TRUE) {
+        tankStates = tankGetStates();
+        /* Activate pumps according to Active Devices */
+        Pump0_Out_Pin_Write(filterStageActive);
+        Pump1_Out_Pin_Write(roStageActive);
+        Pump2_Out_Pin_Write(uvStageActive);
+        
+        /* Turn devices off if appropriate */
+        if (tankEventOccured(TANK_EVENT_0_EMPTY) || tankEventOccured(TANK_EVENT_1_FULL)) {
+            filterStageActive = FALSE;    
+        }
+        if (tankEventOccured(TANK_EVENT_1_EMPTY) || tankEventOccured(TANK_EVENT_2_FULL)) {
+            roStageActive = FALSE;    
+        }
+        if (tankEventOccured(TANK_EVENT_2_EMPTY) || tankEventOccured(TANK_EVENT_3_FULL)) {
+            uvStageActive = FALSE;    
+        }
+        
+        /* Turn devices on if appropriate */
+        if ( (tankStates.tank[0] == TANK_STATE_MID || tankStates.tank[0] == TANK_STATE_FULL) && tankStates.tank[1] != TANK_STATE_FULL) {
+        filterStageActive = TRUE;
+        }
+        if ( (tankStates.tank[1] == TANK_STATE_MID || tankStates.tank[1] == TANK_STATE_FULL) && tankStates.tank[2] != TANK_STATE_FULL) {
+            roStageActive = TRUE;
+        }
+        if ( (tankStates.tank[2] == TANK_STATE_MID || tankStates.tank[2] == TANK_STATE_FULL) && tankStates.tank[3] != TANK_STATE_FULL) {
+            uvStageActive = TRUE;
+        }
+    }
+}
+
+
+
+#ifdef OUTDATED
 
 int main(void) {
     CyGlobalIntEnable; /* Enable global interrupts. */
@@ -155,5 +202,7 @@ int main(void) {
     
     for(;;); /* Just in case */
 }
+
+#endif //Outdated
 
 /* EOF */

@@ -108,6 +108,13 @@ uint8 tankEventOccured(uint16 tankEventFlag) {
 }
 
 
+uint8 tankClearEvent(uint16 tankEventFlag) {
+    uint8 tmp = ((tankEvents & tankEventFlag) != 0);
+    tankEvents &= (~tankEventFlag);
+    return tmp;
+}
+
+
 //––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
 
 /*
