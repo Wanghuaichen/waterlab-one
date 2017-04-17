@@ -11,6 +11,8 @@
 
 #include "tank.h"
 #include "ezoProtocol.h"
+#include "usbProtocol.h"
+#include "waterlabSetupShell.h"
 
 #define TRUE 1
 #define FALSE 0
@@ -32,9 +34,22 @@ uint8 filterStageActive, roStageActive, uvStageActive;
 
 int main(void) {
     CyGlobalIntEnable; /* Enable global interrupts. */
- 
+    
+    LCD_Start();
+    PWM_0_Start();
+    PWM_1_Start();
+    PWM_2_Start();
+    
     tankInit();
     ezoStart();
+    
+    /* Enter and run the Waterlab Setup Shell */
+    if (!SW3_Pin_Read()) {
+        usbStart(); /* Will not return until COMM port is connected */
+        usbSendString("\r-- Welcome to the Waterlab One setup script --\r");
+        usbSendString("Type 'help' to begin.");
+        shellRun(); /* Will not return until 'exit\r' is received over USBUART */
+    }
     
     filterStageActive = FALSE;
     roStageActive = FALSE;
@@ -45,30 +60,53 @@ int main(void) {
     while(TRUE) {
         tankStates = tankGetStates();
         /* Activate pumps according to Active Devices */
-        Pump0_Out_Pin_Write(filterStageActive);
-        Pump1_Out_Pin_Write(roStageActive);
-        Pump2_Out_Pin_Write(uvStageActive);
+        Pump0_En_Write(filterStageActive);
+        Pump1_En_Write(roStageActive);
+        Pump2_En_Write(uvStageActive);
+        
         
         /* Turn devices off if appropriate */
-        if (tankEventOccured(TANK_EVENT_0_EMPTY) || tankEventOccured(TANK_EVENT_1_FULL)) {
+        if (tankClearEvent(TANK_EVENT_0_EMPTY) || tankClearEvent(TANK_EVENT_1_FULL)) {
             filterStageActive = FALSE;    
         }
-        if (tankEventOccured(TANK_EVENT_1_EMPTY) || tankEventOccured(TANK_EVENT_2_FULL)) {
+        if (tankClearEvent(TANK_EVENT_1_EMPTY) || tankClearEvent(TANK_EVENT_2_FULL)) {
             roStageActive = FALSE;    
         }
-        if (tankEventOccured(TANK_EVENT_2_EMPTY) || tankEventOccured(TANK_EVENT_3_FULL)) {
+        if (tankClearEvent(TANK_EVENT_2_EMPTY) || tankClearEvent(TANK_EVENT_3_FULL)) {
             uvStageActive = FALSE;    
         }
         
         /* Turn devices on if appropriate */
         if ( (tankStates.tank[0] == TANK_STATE_MID || tankStates.tank[0] == TANK_STATE_FULL) && tankStates.tank[1] != TANK_STATE_FULL) {
-        filterStageActive = TRUE;
+            filterStageActive = TRUE;
         }
         if ( (tankStates.tank[1] == TANK_STATE_MID || tankStates.tank[1] == TANK_STATE_FULL) && tankStates.tank[2] != TANK_STATE_FULL) {
             roStageActive = TRUE;
         }
         if ( (tankStates.tank[2] == TANK_STATE_MID || tankStates.tank[2] == TANK_STATE_FULL) && tankStates.tank[3] != TANK_STATE_FULL) {
             uvStageActive = TRUE;
+        }
+        
+        LCD_ClearDisplay();
+        sprintf(outString, "ACTIVE: %d%d%d", filterStageActive, roStageActive, uvStageActive);
+        LCD_PrintString(outString);
+        CyDelay(50);
+        
+        while(tankStates.tank[0] == TANK_STATE_UNDEF || tankStates.tank[1] == TANK_STATE_UNDEF
+              || tankStates.tank[2] == TANK_STATE_UNDEF || tankStates.tank[3] == TANK_STATE_UNDEF) {
+                tankStates = tankGetStates();
+            filterStageActive = FALSE;
+            roStageActive = FALSE;
+            uvStageActive = FALSE;
+            Pump0_En_Write(filterStageActive);
+            Pump1_En_Write(roStageActive);
+            Pump2_En_Write(uvStageActive);
+                
+            LED3_Pin_Write(TRUE);
+            LED4_Pin_Write(TRUE);
+            LCD_ClearDisplay();
+            LED3_Pin_Write(FALSE);
+            LED4_Pin_Write(FALSE);
         }
     }
 }

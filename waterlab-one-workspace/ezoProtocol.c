@@ -14,6 +14,8 @@
 #include <string.h>
 #include <stdio.h>
 
+//#define PRINT_DATA
+
 
 //––––––  Private Variables  ––––––//
 uint8 autoPollEn;
@@ -140,8 +142,10 @@ CY_ISR(I2C_DATA_ISR) {
             i2cSendString(EC_SENSOR_ADDRESS, "R");
             i2cSendString(DO_SENSOR_ADDRESS, "R"); 
         } else {
-            LCD_ClearDisplay();
-            char outstring[30] = {};
+            #ifdef PRINT_DATA
+                LCD_ClearDisplay();
+                char outstring[30] = {};
+            #endif
             /* Ask the sensors for the last readings they took */
             arrStruct ecResponse = i2cReadString(EC_SENSOR_ADDRESS);
             arrStruct doResponse = i2cReadString(DO_SENSOR_ADDRESS);
@@ -149,19 +153,24 @@ CY_ISR(I2C_DATA_ISR) {
             /* Successful EC Read */
             if (ecResponse.d[0] == 'S' && 48 <= ecResponse.d[1] && ecResponse.d[1] <= 57) {
                 sscanf(&ecResponse.d[1], "%lf", &recentECData);
-                sprintf(outstring, "EC: %lf", recentECData);
-                LCD_PrintString(outstring);
+                #ifdef PRINT_DATA
+                    sprintf(outstring, "EC: %lf", recentECData);
+                    LCD_PrintString(outstring);
+                #endif
             }
             /* Successful DO Read */
             if (doResponse.d[0] == 'S' && 48 <= doResponse.d[1] && doResponse.d[1] <= 57) {
                 sscanf(&doResponse.d[1], "%lf", &recentDOData);
-                sprintf(outstring, "DO: %lf", recentDOData);
-                LCD_Position(1,0);
-                LCD_PrintString(outstring);
+                #ifdef PRINT_DATA
+                    sprintf(outstring, "DO: %lf", recentDOData);
+                    LCD_Position(1,0);
+                    LCD_PrintString(outstring);
+                #endif
             }
         }
         dataRequested = ~dataRequested;
     }
+    
     One_Sec_Timer_STATUS; /* Clear ISR */
 }
 
