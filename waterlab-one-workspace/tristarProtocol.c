@@ -164,7 +164,8 @@ CY_ISR(RX_ISR) {
                     rxMode = RX_MODE_RESYNC;
 //                    rxCount = 0;
                 } else {
-                    usbLog("TSTAR NORMAL", "Valid Packet");
+//                    usbLog("TSTAR NORMAL", "Valid Packet");
+                    usbSendData(rxBuffer, rxCount);
                     rxCount = 0;
                 }
             }
@@ -176,7 +177,7 @@ CY_ISR(RX_ISR) {
                 if ( rxBuffer[i] == rxCount - CRC_LENGTH - (i+1) && rxBuffer[i-2] == activeAddress
                     && confirmCRC(generateCRC16(&rxBuffer[i-2], rxBuffer[i]+3), rxBuffer[rxCount-2], rxBuffer[rxCount-1]) ) {
                        
-//                    usbSendData(&rxBuffer[i-2], rxBuffer[i]+ NUM_NON_DATA_BYTES);
+                    usbSendData(&rxBuffer[i-2], rxBuffer[i]+ NUM_NON_DATA_BYTES);
                     usbLog("TSTAR RESYNC", "Valid Packet");
                     rxMode = RX_MODE_NORMAL;
                     rxCount = 0;
