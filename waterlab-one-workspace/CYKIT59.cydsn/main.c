@@ -90,10 +90,14 @@ int main(void) {
     tstarStart();
     
     usbStart();
-    uint8 data[4] = {0x00, 0x00, 0x00, 0x02};
+    
+    char outstring[30] = {};
     while(1) {
         if (!SW1_Pin_Read()) {
-            tstarSendData(READ_INPUT_REG, data, 4);
+            sprintf(outstring, "Voltage: %f", tstarBattVolt());
+            usbLog("Main",outstring);
+            sprintf(outstring, "Current: %f", tstarPVCurrent());
+            usbLog("Main",outstring);
             CyDelay(1000);
         }
     }
@@ -115,8 +119,11 @@ int main(void) {
     
     powerMode = MID_POWER_MODE;
     tankStruct tankStates;
+    double battVoltage;
+    double panelCurrent;
     while(TRUE) {
-        
+        battVoltage = tstarBattVolt();
+        panelCurrent = tstarPVCurrent();
         switch (powerMode) {
         
             case HIGH_POWER_MODE:

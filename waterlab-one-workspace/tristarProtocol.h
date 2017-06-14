@@ -29,22 +29,26 @@ enum MODBUS_FUNCTION_CODES {
 
     
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
-    
-void tstarStart(void);
-
 
 /*
-[desc]  Sends an array of data to a Tristar MPPT PC over UART. This must be shifted
-        and inverted to RS-232 voltages externally. Will only send if the
-        Tristar recognizes the [function] code chosen as valid.
-
-[function] A MODBUS function code for a server request. Use the MODBUS_FUNCTION_CODES enum.
-[data] The data to be sent in the frame.
-[length] Length of the data to be sent.
-
-[ret]   Returns 1 if [function] code is a valid Tristar command, 0 otherwise.
+[desc]  Initialization code for the tristar module. This module's funcationality is
+		undefined if this is not called before other functions.
 */
-uint8 tstarSendData(uint8 function, uint8 data[], uint8 length);
+void tstarStart(void);
+
+/*
+[desc]  Returns the battery voltage as measured by the Tristar MMPT. Blocking.
+
+[ret]   The battery voltage.
+*/
+double tstarBattVolt(void);
+
+/*
+[desc]  Returns the pv current as measured by the Tristar MMPT. Blocking.
+
+[ret]   The PV panel current.
+*/
+double tstarPVCurrent(void);
 
     
 #endif /* TRISTAR_PROTOCOL_H */
