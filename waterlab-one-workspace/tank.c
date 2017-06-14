@@ -103,7 +103,7 @@ tankStruct tankGetStates(void) {
 }
 
 
-uint8 tankEventOccured(uint16 tankEventFlag) {
+uint8 tankEventoccurred(uint16 tankEventFlag) {
     return ((tankEvents & tankEventFlag) != 0);
 }
 

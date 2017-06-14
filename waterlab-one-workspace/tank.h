@@ -85,11 +85,11 @@ tankStruct tankGetStates(void);
         'and-ing' of tankEvents and the event in question explicitly. Note that
         tankEvents must be cleared externally by setting tankEvents to TANK_EVENT_NONE.
 
-[tankEventFlag] A TankEventFlag to test for occurance
+[tankEventFlag] A TankEventFlag to test for occurrance
     
 [ret]   1 if the event occurred, 0 otherwise.
 */
-uint8 tankEventOccured(uint16 tankEventFlag);
+uint8 tankEventOccurred(uint16 tankEventFlag);
 
 
 /*

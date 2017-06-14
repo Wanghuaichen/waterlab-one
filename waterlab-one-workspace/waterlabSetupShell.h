@@ -14,6 +14,10 @@
 #define SHELL_H
 
 #include "project.h"
+    
+float highVoltThreshold;
+float midVoltThreshold;
+float currentThreshold;
 
 
 //––––––––––––––––––––––––––––––  Public Functions  ––––––––––––––––––––––––––––––//
@@ -30,6 +34,13 @@
                 exit
 */
 void shellRun(void);
+
+
+/*
+[desc]  Toggles the state of recirculation regarding the UV device. This is defined here
+        so that the setupShell can use this function if requested by the user.
+*/
+void toggleRecirculation(void);
     
 
 #endif //SHELL_H

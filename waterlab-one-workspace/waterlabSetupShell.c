@@ -37,6 +37,12 @@ void shellRun(void) {
     while (shellProcessByte(usbGetByte()) != EXIT_SHELL);    
 }
 
+void toggleRecirculation(void) {
+//    Solenoid_Select_Write(Solenoid_Select_Read() == 0);
+//    Solenoid_Signal_Write(1);
+    CyDelay(50); //Length of signal to toggle solenoid
+//    Solenoid_Signal_Write(0);
+}
 
 //––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
 
@@ -78,6 +84,7 @@ enum commands {
     SEND,
     SET_AUTO_POLL,
     CHANGE_ACTIVE_DEVICE,
+    TOGGLE_RECIRCULATION,
 };
 
 
@@ -168,6 +175,11 @@ uint8 runCommand(void) {
                 }
                 break;
                 
+            case TOGGLE_RECIRCULATION:
+                toggleRecirculation();
+                usbSendString("\r  Toggled the recirculation solenoids");
+                break;
+                
             default:
                 usbSendString("   { Invalid Shell Command }");
                 break;
@@ -197,6 +209,8 @@ uint8 determineCommand(char command[]) {
         return SET_AUTO_POLL;
     } else if(!strcmp(command, "change_active_device")) {
         return CHANGE_ACTIVE_DEVICE;
+    } else if(!strcmp(command, "toggle_recirculation")) {
+        return TOGGLE_RECIRCULATION;
     } else {
         return 0;
     }

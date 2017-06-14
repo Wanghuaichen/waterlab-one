@@ -1,7 +1,6 @@
 /*
     Carl Lindquist
     Mar 17, 2017
-
     Library for interfacing with the Atlas-Scientific EZO class circuits
     over I2C. This library will poll the sensors using a hardware timer 
     and store data points for immediate public access to recent readings.

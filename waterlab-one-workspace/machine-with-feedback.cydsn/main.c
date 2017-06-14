@@ -31,17 +31,21 @@ enum MACHINE_STATES {
 
 uint8 ecThresholdFlag;
 uint8 filterStageActive, roStageActive, uvStageActive;
+int32 dutyCycle;
 
 int main(void) {
     CyGlobalIntEnable; /* Enable global interrupts. */
     
     LCD_Start();
+    ADC_Start();
     PWM_0_Start();
     PWM_1_Start();
     PWM_2_Start();
     
     tankInit();
     ezoStart();
+    
+    
     
     /* Enter and run the Waterlab Setup Shell */
     if (!SW3_Pin_Read()) {
@@ -51,6 +55,9 @@ int main(void) {
         shellRun(); /* Will not return until 'exit\r' is received over USBUART */
     }
     
+    Pump0_En_Write(1);
+    for(;;);
+    
     filterStageActive = FALSE;
     roStageActive = FALSE;
     uvStageActive = FALSE;
@@ -58,16 +65,23 @@ int main(void) {
     tankStruct tankStates;
     char outString[30] = {};
     while(TRUE) {
+        
+        
+        
         tankStates = tankGetStates();
         /* Activate pumps according to Active Devices */
         Pump0_En_Write(filterStageActive);
+        CyDelayUs(1000);
         Pump1_En_Write(roStageActive);
+        CyDelayUs(1000);
         Pump2_En_Write(uvStageActive);
+        CyDelayUs(1000);
         
         
         /* Turn devices off if appropriate */
         if (tankClearEvent(TANK_EVENT_0_EMPTY) || tankClearEvent(TANK_EVENT_1_FULL)) {
-            filterStageActive = FALSE;    
+            filterStageActive = FALSE;
+            
         }
         if (tankClearEvent(TANK_EVENT_1_EMPTY) || tankClearEvent(TANK_EVENT_2_FULL)) {
             roStageActive = FALSE;    
@@ -90,6 +104,20 @@ int main(void) {
         LCD_ClearDisplay();
         sprintf(outString, "ACTIVE: %d%d%d", filterStageActive, roStageActive, uvStageActive);
         LCD_PrintString(outString);
+        
+        
+        dutyCycle = ADC_Read32() * 100 / 0xffff;
+        if (dutyCycle > 100) {
+            dutyCycle = 100;
+        }
+        LCD_Position(1, 0);
+        sprintf(outString, "Duty: %ld", dutyCycle);
+        LCD_PrintString(outString);
+        PWM_0_WriteCompare(dutyCycle);
+        PWM_1_WriteCompare(dutyCycle);
+        PWM_2_WriteCompare(dutyCycle);
+        
+        
         CyDelay(50);
         
         while(tankStates.tank[0] == TANK_STATE_UNDEF || tankStates.tank[1] == TANK_STATE_UNDEF
@@ -167,7 +195,7 @@ int main(void) {
                 LCD_Position(1, 0);
                 LCD_PrintHexUint16(tankEvents);
                 
-                if (tankEventOccured(TANK_EVENT_0_EMPTY) || tankEventOccured(TANK_EVENT_1_FULL)) {
+                if (tankEventoccurred(TANK_EVENT_0_EMPTY) || tankEventoccurred(TANK_EVENT_1_FULL)) {
                     Pump0_Out_Pin_Write(FALSE);
                     machineState = STATE_IDLE;
                     tankEvents = TANK_EVENT_NONE;
@@ -181,7 +209,7 @@ int main(void) {
                 LCD_Position(1, 0);
                 LCD_PrintHexUint16(tankEvents);
                 
-                if (tankEventOccured(TANK_EVENT_1_EMPTY) || tankEventOccured(TANK_EVENT_0_FULL)) {
+                if (tankEventoccurred(TANK_EVENT_1_EMPTY) || tankEventoccurred(TANK_EVENT_0_FULL)) {
                     Pump1_Out_Pin_Write(FALSE);
                     machineState = STATE_IDLE;
                     tankEvents = TANK_EVENT_NONE;
@@ -195,7 +223,7 @@ int main(void) {
                 LCD_Position(1, 0);
                 LCD_PrintHexUint16(tankEvents);
                 
-                if (tankEventOccured(TANK_EVENT_2_EMPTY) || tankEventOccured(TANK_EVENT_3_FULL)) {
+                if (tankEventoccurred(TANK_EVENT_2_EMPTY) || tankEventoccurred(TANK_EVENT_3_FULL)) {
                     Pump2_Out_Pin_Write(FALSE);
                     machineState = STATE_IDLE;
                     tankEvents = TANK_EVENT_NONE;
@@ -205,7 +233,7 @@ int main(void) {
             case STATE_RECIRCULATE_UV:
                 LCD_ClearDisplay();
                 LCD_PrintString("RECIRCULATE UV");
-                if ( (tankEventOccured(TANK_EVENT_1_EMPTY) || tankEventOccured(TANK_EVENT_2_EMPTY) || tankEventOccured(TANK_EVENT_3_EMPTY))
+                if ( (tankEventoccurred(TANK_EVENT_1_EMPTY) || tankEventoccurred(TANK_EVENT_2_EMPTY) || tankEventoccurred(TANK_EVENT_3_EMPTY))
                         && ecThresholdFlag == FALSE) {
                     Pump3_Out_Pin_Write(FALSE);
                     machineState = STATE_IDLE;

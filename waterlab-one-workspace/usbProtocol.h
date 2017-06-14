@@ -36,10 +36,30 @@ void usbSendByte(uint8 byte);
 
 /*
 [desc]  Sends a string to the host PC over USBUART. String not sent if
-		length is greater than 63
+		length is greater than 63.
 
 [string] String to be sent. Length should be less than 64.
 */
 void usbSendString(char string[]);
+
+/*
+[desc]  Sends a string to the host PC over USBUART with some preformatting. 
+        String not sent if length is greater than 63. Will send the string with
+        the log level in square brackets before the string.
+            Ex: '[loglevel] This is my string.'
+
+[string] String to be sent. Length should be less than 64.
+[logLevel] What sort of message this should be.
+*/
+void usbLog(char logLevel[], char string[]);
+
+/*
+[desc]  Sends an array of data to the host PC over USBUART. String not sent if
+		length is greater than 63.
+
+[string] Array of data to be sent.
+[length] Length of the array.
+*/
+void usbSendData(uint8 data[], uint16 length);
     
 #endif //USB_PROTOCOL_H
