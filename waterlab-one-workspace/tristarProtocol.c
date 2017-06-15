@@ -143,7 +143,16 @@ double tstarPVCurrent(void) {
 
 //––––––––––––––––––––––––––––––  Private Functions  ––––––––––––––––––––––––––––––//
 
+/*
+[desc]  Main method for requesting data from the Tristar. This function will block until
+        incoming packets are finished, then send your request, and continue to wait until a 
+        successful response has come back. NOTE: this function will permamnently block
+        if an invalid packet is received, and a valid one does not arrive.
 
+[function] A MODBUS function code for a server request. Use the MODBUS_FUNCTION_CODES enum.
+[data] The data to be sent in the frame.
+[length] Length of the data to be sent.
+*/
 void tstarRequest(uint8 function, uint8 data[], uint8 length) {
     while(!packetReady); // Wait for incoming packets to finish
     packetReady = FALSE;
@@ -175,6 +184,15 @@ uint8 tstarSendData(uint8 function, uint8 data[], uint8 length) {
     }
 }
 
+
+/*
+[desc]  Sends an array of data to a generic MODBUS client over UART.
+
+[address] The MODBUS client address to send to.
+[function] A MODBUS function code for a server request. Use the MODBUS_FUNCTION_CODES enum.
+[data] The data to be sent in the frame.
+[length] Length of the data to be sent.
+*/
 void sendMBUSFrame(uint8 address, uint8 function, uint8 data[], uint16 length) {
     uint8 frame[MAX_FRAME_SIZE] = {};
     frame[0] = address;
@@ -192,6 +210,12 @@ void sendMBUSFrame(uint8 address, uint8 function, uint8 data[], uint16 length) {
 }
 
 
+/*
+[desc]  Calculates the MODBUS cyclical redundancy check for a given data array.
+
+[data] The data to calculate CRC for.
+[length] Length of the data to be processed.
+*/
 uint16 generateCRC16(const uint8 data[], uint16 length) {
     /* http://www.modbustools.com/modbus.html */
     uint8 temp;
@@ -206,10 +230,24 @@ uint16 generateCRC16(const uint8 data[], uint16 length) {
 }
 
 
+/*
+[desc]  Confirms that a uint16 is equal to two uint8 in the standard MODBUS arrangement.
+
+[check] A uint16
+[low] The low byte. First in a standard MODBUS packet.
+[high] The high byte. Second in a standard MODBUS packet.
+*/
 uint8 confirmCRC(uint16 check, uint8 low, uint8 high) {
     return check == ((high << 8) | low);    
 }
 
+
+/*
+[desc]  Converts an array of hex values to a single uint64
+
+[hex] An array of hex values to convert
+[length] The number of hex values to convert
+*/
 uint64 hexToDecimal(uint8 hex[], uint16 length) {
     uint32 result = 0;
 
@@ -222,6 +260,14 @@ uint64 hexToDecimal(uint8 hex[], uint16 length) {
 }
 
 
+/*
+[desc]  This is the core of this MODBUS library. Automatically buffers bytes from the UART
+        until a valid packet is received. A packet is considered valid when the data-length 
+        byte received is equal to the number of bytes in the array plus the number of overhead
+        bytes. If an invalid packet is received, data is buffered and scanned until a valid 
+        packet is received. A packet is considered invalid if its CRC does not match the data
+        received.
+*/
 CY_ISR(RX_ISR) {
     static uint8 rxBuffer[BUFFER_SIZE] = {};
     static uint16 rxCount;
@@ -240,7 +286,7 @@ CY_ISR(RX_ISR) {
                 bytesRemaining--;
             }
             
-            if (rxCount == 2) { //MBUS RTU server packets always hold the length -2 remaining in this spot
+            if (rxCount == 2) { //MBUS RTU server packets always hold the (packet length-2) remaining in this spot
                 bytesRemaining = byte + CRC_LENGTH;
             }
             rxBuffer[rxCount++] = byte;
@@ -262,13 +308,12 @@ CY_ISR(RX_ISR) {
             
         case RX_MODE_RESYNC:
             rxBuffer[rxCount++] = byte;
-            for (i=rxCount-1; i >= 2; i--) {
+            for (i=rxCount-1; i >= 2; i--) { /* scan through the entire buffer backwards looking for a good packet */
                 if ( rxBuffer[i] == rxCount - CRC_LENGTH - (i+1) && rxBuffer[i-2] == activeAddress
                     && confirmCRC(generateCRC16(&rxBuffer[i-2], rxBuffer[i]+3), rxBuffer[rxCount-2], rxBuffer[rxCount-1]) ) {
                        
                     usbLog("TSTAR", "Successful Resync - Valid Packet found");
                     rxMode = RX_MODE_NORMAL;
-//                    usbSendData(&rxBuffer[i-2], rxBuffer[i]+ NUM_NON_DATA_BYTES);
                     memcpy(dfltPacketBuffer, &rxBuffer[i-2], rxBuffer[i]+ NUM_NON_DATA_BYTES);
                     packetLength = rxBuffer[i]+ NUM_NON_DATA_BYTES;
                     rxCount = 0;
@@ -277,7 +322,6 @@ CY_ISR(RX_ISR) {
                 }
             }
             break;
-        
     } 
 }
     
